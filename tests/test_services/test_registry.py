@@ -3,8 +3,6 @@
 from __future__ import annotations
 
 from live_translator.services.registry import ServiceRegistry
-from live_translator.services.asr import SpeechRecognizer, ASRSession
-from live_translator.services.translator import Translator
 
 
 def test_registry_register_and_get() -> None:
@@ -14,9 +12,11 @@ def test_registry_register_and_get() -> None:
     class FakeASR:
         service_id = "fake_asr"
         display_name = "Fake ASR"
-        config = {}
+        config: dict = {}
+
         def create_session(self):
             raise NotImplementedError
+
         @classmethod
         def config_schema(cls):
             return {"type": "object", "properties": {}}
@@ -34,9 +34,11 @@ def test_registry_list_services() -> None:
     class FakeASR:
         service_id = "asr_a"
         display_name = "ASR A"
-        config = {}
+        config: dict = {}
+
         def create_session(self):
             raise NotImplementedError
+
         @classmethod
         def config_schema(cls):
             return {"type": "object", "properties": {}}
@@ -44,9 +46,11 @@ def test_registry_list_services() -> None:
     class FakeASR2:
         service_id = "asr_b"
         display_name = "ASR B"
-        config = {}
+        config: dict = {}
+
         def create_session(self):
             raise NotImplementedError
+
         @classmethod
         def config_schema(cls):
             return {"type": "object", "properties": {}}
@@ -71,9 +75,11 @@ def test_registry_list_display_names() -> None:
     class FakeASR:
         service_id = "my_asr"
         display_name = "My ASR Service"
-        config = {}
+        config: dict = {}
+
         def create_session(self):
             raise NotImplementedError
+
         @classmethod
         def config_schema(cls):
             return {"type": "object", "properties": {}}

@@ -9,8 +9,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from PySide6.QtCore import Qt, QRect, QTimer
-from PySide6.QtGui import QFont, QPainter, QColor, QBrush, QPen, QFontMetrics
+from PySide6.QtCore import QRect, Qt, QTimer
+from PySide6.QtGui import QBrush, QColor, QFont, QFontMetrics, QPainter, QPen
 from PySide6.QtWidgets import QApplication, QWidget
 
 
@@ -112,7 +112,7 @@ class SubtitleWindow(QWidget):
         """
         self._entries.append((original, translated))
         if len(self._entries) > self._max_lines:
-            self._entries = self._entries[-self._max_lines:]
+            self._entries = self._entries[-self._max_lines :]
 
         self._partial_text = ""
         self.show()
@@ -153,9 +153,7 @@ class SubtitleWindow(QWidget):
         # Semi-transparent background
         painter.setBrush(QBrush(QColor(0, 0, 0, int(255 * self._opacity))))
         painter.setPen(QPen(Qt.PenStyle.NoPen))
-        painter.drawRoundedRect(0, self.height() - total_height,
-                                self.width(), total_height,
-                                6, 6)
+        painter.drawRoundedRect(0, self.height() - total_height, self.width(), total_height, 6, 6)
 
         # Draw entries from bottom up
         y = self.height() - 15  # bottom padding
@@ -163,24 +161,39 @@ class SubtitleWindow(QWidget):
             # Original text (gray)
             painter.setPen(QColor(200, 200, 200))
             painter.setFont(self._font)
-            painter.drawText(20, y - line_height, self.width() - 40, line_height,
-                             Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
-                             original)
+            painter.drawText(
+                20,
+                y - line_height,
+                self.width() - 40,
+                line_height,
+                Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
+                original,
+            )
 
             # Separator and translated text (white)
             painter.setPen(QColor(255, 255, 255))
             display_text = f" \u2500 {translated}" if translated else ""
-            painter.drawText(20, y, self.width() - 40, line_height,
-                             Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
-                             display_text)
+            painter.drawText(
+                20,
+                y,
+                self.width() - 40,
+                line_height,
+                Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
+                display_text,
+            )
             y -= 2 * line_height
 
         # Partial text (most recent, bottom)
         if self._partial_text:
             painter.setPen(QColor(180, 180, 180))
             partial_display = f"{self._partial_text} \u2026"
-            painter.drawText(20, y, self.width() - 40, line_height,
-                             Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
-                             partial_display)
+            painter.drawText(
+                20,
+                y,
+                self.width() - 40,
+                line_height,
+                Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
+                partial_display,
+            )
 
         painter.end()

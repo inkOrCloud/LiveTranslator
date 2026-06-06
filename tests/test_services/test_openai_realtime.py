@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from live_translator.services.openai_realtime import OpenAIRealtimeService
 
 
@@ -24,6 +26,5 @@ def test_realtime_service_identity() -> None:
 def test_realtime_create_session_no_key() -> None:
     """create_session without API key should raise RuntimeError."""
     service = OpenAIRealtimeService({"api_key": "", "model": "gpt-4o-realtime-preview"})
-    import pytest
     with pytest.raises(RuntimeError, match="OpenAI API key not configured"):
         service.create_session()

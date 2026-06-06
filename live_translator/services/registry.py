@@ -62,7 +62,4 @@ class ServiceRegistry:
         Returns:
             Dict mapping service_id -> display_name.
         """
-        return {
-            sid: svc.display_name
-            for sid, svc in self._services.get(category, {}).items()
-        }
+        return {sid: svc.display_name for sid, svc in self._services.get(category, {}).items()}

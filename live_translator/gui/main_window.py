@@ -2,9 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Any
-
-from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QComboBox,
     QFrame,
@@ -29,8 +26,7 @@ class MainWindow(QMainWindow):
 
     _config_forms: dict[str, ConfigFormBuilder]
 
-    def __init__(self, config: ConfigManager,
-                 registry: ServiceRegistry | None = None) -> None:
+    def __init__(self, config: ConfigManager, registry: ServiceRegistry | None = None) -> None:
         """Initialize the main window.
 
         Args:
@@ -194,7 +190,8 @@ class MainWindow(QMainWindow):
         if t_service is not None:
             schema = t_service.config_schema()
             current_config = self._config.get_service_config(
-                "translator", active_t,
+                "translator",
+                active_t,
             )
             builder = ConfigFormBuilder(schema, current_config)
             form = builder.build()
@@ -209,9 +206,10 @@ class MainWindow(QMainWindow):
             layout: The layout to clear.
         """
         while layout.count():
-            item = layout.takeAt(0)
-            if item and item.widget():
-                item.widget().deleteLater()
+            item_w = layout.takeAt(0)
+            w = item_w.widget() if item_w else None
+            if w is not None:
+                w.deleteLater()
 
     def add_history_entry(self, original: str, translated: str) -> None:
         """Add a translation result to the history list.

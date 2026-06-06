@@ -18,8 +18,7 @@ class Translator(Protocol):
     config: dict[str, Any]
     """Current configuration dict for this service instance."""
 
-    def translate(self, text: str, source_lang: str,
-                  target_lang: str) -> str:
+    def translate(self, text: str, source_lang: str, target_lang: str) -> str:
         """Translate text from source language to target language.
 
         Args:

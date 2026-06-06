@@ -8,8 +8,10 @@ from typing import TYPE_CHECKING
 from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import QApplication
 
-from live_translator.pipeline.scheduler import PipelineScheduler, PipelineStatus
 from live_translator.config.manager import ConfigManager
+from live_translator.gui.config_form import ConfigFormBuilder
+from live_translator.pipeline.events import PipelineStatus
+from live_translator.pipeline.scheduler import PipelineScheduler
 from live_translator.services.registry import ServiceRegistry
 
 if TYPE_CHECKING:
@@ -34,7 +36,7 @@ class LiveTranslatorApp:
         self._subtitle_window: SubtitleWindow | None = None
         self._tray_icon: TrayIcon | None = None
         self._poll_timer: QTimer | None = None
-        self._config_forms: dict = {}
+        self._config_forms: dict[str, ConfigFormBuilder] = {}
 
     def register_default_services(self) -> None:
         """Register built-in service implementations."""
@@ -42,27 +44,28 @@ class LiveTranslatorApp:
         from live_translator.services.openai_realtime import OpenAIRealtimeService
 
         asr_config = self._config.get_service_config(
-            "asr", "openai_realtime",
+            "asr",
+            "openai_realtime",
         )
         self._registry.register(
-            "asr", OpenAIRealtimeService(asr_config),
+            "asr",
+            OpenAIRealtimeService(asr_config),
         )
 
         t_config = self._config.get_service_config(
-            "translator", "deepl",
+            "translator",
+            "deepl",
         )
         self._registry.register(
-            "translator", DeepLTranslateService(t_config),
+            "translator",
+            DeepLTranslateService(t_config),
         )
 
     def _on_start(self) -> None:
         """Handle start button click."""
         if self._pipeline is None:
             return
-        src, tgt = (
-            self._main_window.get_languages()
-            if self._main_window else ("auto", "ZH")
-        )
+        src, tgt = self._main_window.get_languages() if self._main_window else ("auto", "ZH")
         self._pipeline.set_languages(src, tgt)
         self._pipeline.start()
         self._update_status_text()
@@ -135,7 +138,8 @@ class LiveTranslatorApp:
             values = builder.get_values()
             for key, val in values.items():
                 self._config.set(
-                    f"services.asr.providers.{active_asr}.{key}", val,
+                    f"services.asr.providers.{active_asr}.{key}",
+                    val,
                 )
             self._config.set("services.asr.active", active_asr)
 
@@ -147,7 +151,8 @@ class LiveTranslatorApp:
             values = builder.get_values()
             for key, val in values.items():
                 self._config.set(
-                    f"services.translator.providers.{active_t}.{key}", val,
+                    f"services.translator.providers.{active_t}.{key}",
+                    val,
                 )
             self._config.set("services.translator.active", active_t)
 
@@ -160,15 +165,18 @@ class LiveTranslatorApp:
     def _rebuild_pipeline(self) -> None:
         """Rebuild the pipeline with current service instances."""
         asr_service = self._registry.get(
-            "asr", self._config.get_active_service("asr"),
+            "asr",
+            self._config.get_active_service("asr"),
         )
         t_service = self._registry.get(
-            "translator", self._config.get_active_service("translator"),
+            "translator",
+            self._config.get_active_service("translator"),
         )
         if asr_service is None or t_service is None:
             return
 
         from live_translator.audio.system_monitor import SystemMonitor
+
         audio = SystemMonitor(
             sample_rate=self._config.get("audio.sample_rate", 16000),
         )
@@ -179,9 +187,17 @@ class LiveTranslatorApp:
         self._pipeline.on_status_change = self._on_status_change
         self._pipeline.on_error = self._on_error
 
+    def _show_windows(self) -> None:
+        """Show both main and subtitle windows."""
+        if self._main_window:
+            self._main_window.show()
+        if self._subtitle_window:
+            self._subtitle_window.show()
+
     def run(self) -> None:
         """Start the Qt application event loop."""
         import sys
+
         app = QApplication(sys.argv)
 
         from live_translator.gui.main_window import MainWindow
@@ -209,7 +225,7 @@ class LiveTranslatorApp:
             self._on_save_config,
         )
         self._main_window._asr_selector.currentIndexChanged.connect(
-            lambda: self._main_window.rebuild_config_forms(),
+            self._main_window.rebuild_config_forms,
         )
         self._main_window._translator_selector.currentIndexChanged.connect(
             lambda: self._main_window.rebuild_config_forms(),
@@ -223,8 +239,7 @@ class LiveTranslatorApp:
         # Tray icon
         self._tray_icon = TrayIcon(self._main_window)
         self._tray_icon._show_action.triggered.connect(
-            lambda: (self._main_window.show(),
-                     self._subtitle_window.show()),
+            self._show_windows,
         )
         self._tray_icon._quit_action.triggered.connect(app.quit)
 

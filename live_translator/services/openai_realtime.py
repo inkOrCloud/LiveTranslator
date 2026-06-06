@@ -10,10 +10,14 @@ from typing import Any
 class _RealtimeSession:
     """Internal implementation of ASRSession for OpenAI Realtime API."""
 
-    def __init__(self, api_key: str, model: str,
-                 on_partial: Callable[[str], None] | None = None,
-                 on_final: Callable[[str], None] | None = None,
-                 on_error: Callable[[Exception], None] | None = None) -> None:
+    def __init__(
+        self,
+        api_key: str,
+        model: str,
+        on_partial: Callable[[str], None] | None = None,
+        on_final: Callable[[str], None] | None = None,
+        on_error: Callable[[Exception], None] | None = None,
+    ) -> None:
         """Initialize the session.
 
         Args:
@@ -52,17 +56,21 @@ class _RealtimeSession:
         self._connected = True
 
         # Send session update to enable audio transcription
-        self._ws.send(json.dumps({
-            "type": "session.update",
-            "session": {
-                "modalities": ["text"],
-                "instructions": "",
-                "input_audio_transcription": {
-                    "enabled": True,
-                    "model": "whisper-1",
-                },
-            },
-        }))
+        self._ws.send(
+            json.dumps(
+                {
+                    "type": "session.update",
+                    "session": {
+                        "modalities": ["text"],
+                        "instructions": "",
+                        "input_audio_transcription": {
+                            "enabled": True,
+                            "model": "whisper-1",
+                        },
+                    },
+                }
+            )
+        )
 
     def send_audio(self, chunk: bytes) -> None:
         """Send an audio chunk (PCM16, 16kHz, mono) for recognition.
@@ -74,11 +82,16 @@ class _RealtimeSession:
             self._connect()
 
         import base64
+
         audio_b64 = base64.b64encode(chunk).decode("ascii")
-        self._ws.send(json.dumps({
-            "type": "input_audio_buffer.append",
-            "audio": audio_b64,
-        }))
+        self._ws.send(
+            json.dumps(
+                {
+                    "type": "input_audio_buffer.append",
+                    "audio": audio_b64,
+                }
+            )
+        )
 
     def on_partial(self, callback: Callable[[str], None]) -> None:
         """Register callback for partial transcription."""
@@ -116,7 +129,7 @@ class _RealtimeSession:
                 if self._on_error_cb:
                     self._on_error_cb(RuntimeError(error_msg))
 
-        except (TimeoutError, TimeoutError):
+        except TimeoutError:
             pass
         except Exception as exc:
             if self._on_error_cb:

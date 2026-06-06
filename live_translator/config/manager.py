@@ -75,9 +75,9 @@ class ConfigManager:
             self._data = json.loads(json.dumps(DEFAULT_CONFIG))
 
     @staticmethod
-    def _deep_merge(base: dict, override: dict) -> dict:
+    def _deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
         """Recursively merge override into base."""
-        result = {}
+        result: dict[str, Any] = {}
         all_keys = set(base) | set(override)
         for key in all_keys:
             if key in base and key in override:
@@ -104,10 +104,11 @@ class ConfigManager:
         parts = key.split(".")
         current = self._data
         for part in parts:
-            if isinstance(current, dict) and part in current:
-                current = current[part]
-            else:
+            if not isinstance(current, dict):
                 return default
+            if part not in current:
+                return default
+            current = current[part]
         return current
 
     def set(self, key: str, value: Any) -> None:

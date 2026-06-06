@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock
 
-import pytest
-
 from live_translator.pipeline.scheduler import PipelineScheduler, PipelineStatus
 
 
@@ -75,7 +73,9 @@ def test_pipeline_forwards_translation() -> None:
     pipeline._on_asr_final("Hello")
 
     translator.translate.assert_called_once_with(
-        "Hello", source_lang="auto", target_lang="ZH",
+        "Hello",
+        source_lang="auto",
+        target_lang="ZH",
     )
     assert result == [("Hello", "你好")]
 

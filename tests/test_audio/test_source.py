@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Protocol
+
 from live_translator.audio.source import AudioSource
 
 
@@ -12,5 +14,4 @@ def test_audio_source_importable() -> None:
 
 def test_audio_source_is_protocol() -> None:
     """AudioSource should be a Protocol class."""
-    from typing import Protocol
     assert issubclass(AudioSource, Protocol)

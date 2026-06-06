@@ -155,7 +155,7 @@ class PipelineScheduler:
             if self.on_translation:
                 self.on_translation(text, translated)
         except Exception as exc:
-            logger.error("Translation failed: %s", exc)
+            logger.exception("Translation failed")
             if self.on_error:
                 self.on_error(f"Translation failed: {exc}")
 

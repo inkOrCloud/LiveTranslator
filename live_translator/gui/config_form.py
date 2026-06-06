@@ -27,8 +27,9 @@ class ConfigFormBuilder:
         updated = builder.get_values()
     """
 
-    def __init__(self, schema: dict[str, Any],
-                 current_values: dict[str, Any] | None = None) -> None:
+    def __init__(
+        self, schema: dict[str, Any], current_values: dict[str, Any] | None = None
+    ) -> None:
         """Initialize the form builder.
 
         Args:

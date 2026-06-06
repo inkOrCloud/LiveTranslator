@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from typing import Any
 
-from live_translator.services.translator import Translator
-
 
 class DeepLTranslateService:
     """Translator implementation using the DeepL API."""
@@ -26,8 +24,9 @@ class DeepLTranslateService:
             "target_lang": "ZH",
         }
 
-    def translate(self, text: str, source_lang: str = "auto",
-                  target_lang: str | None = None) -> str:
+    def translate(
+        self, text: str, source_lang: str = "auto", target_lang: str | None = None
+    ) -> str:
         """Translate text via DeepL API.
 
         Args:
@@ -55,13 +54,15 @@ class DeepLTranslateService:
             params["source_lang"] = source_lang.upper()
 
         import requests
+
         response = requests.post(self.BASE_URL, data=params, timeout=10)
         response.raise_for_status()
         data = response.json()
         return str(data["translations"][0]["text"])
 
-    def translate_partial(self, text: str, source_lang: str = "auto",
-                          target_lang: str | None = None) -> str | None:
+    def translate_partial(
+        self, text: str, source_lang: str = "auto", target_lang: str | None = None
+    ) -> str | None:
         """Translate partial/in-progress text.
 
         In synchronous mode, partial results are not translated.

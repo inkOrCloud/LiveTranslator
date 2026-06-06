@@ -6,7 +6,7 @@ from collections.abc import Callable
 from typing import Any
 
 import numpy as np
-import sounddevice as sd
+import sounddevice as sd  # type: ignore[import-untyped]
 
 
 class SystemMonitor:
@@ -16,9 +16,7 @@ class SystemMonitor:
     it falls back to the default input device.
     """
 
-    def __init__(self, sample_rate: int = 16000,
-                 channels: int = 1,
-                 blocksize: int = 1024) -> None:
+    def __init__(self, sample_rate: int = 16000, channels: int = 1, blocksize: int = 1024) -> None:
         """Initialize system audio monitor.
 
         Args:

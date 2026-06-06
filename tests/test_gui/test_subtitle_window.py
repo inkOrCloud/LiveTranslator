@@ -2,20 +2,10 @@
 
 from __future__ import annotations
 
-import pytest
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QApplication
 
 from live_translator.gui.subtitle_window import SubtitleWindow
-
-
-@pytest.fixture(scope="module")
-def qapp() -> QApplication:
-    """Create QApplication for widget tests."""
-    app = QApplication.instance()
-    if app is None:
-        app = QApplication([])
-    return app
 
 
 def test_subtitle_window_creation(qapp: QApplication) -> None:

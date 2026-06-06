@@ -2,19 +2,9 @@
 
 from __future__ import annotations
 
-import pytest
-from PySide6.QtWidgets import QApplication, QLineEdit, QComboBox, QCheckBox
+from PySide6.QtWidgets import QApplication
 
 from live_translator.gui.config_form import ConfigFormBuilder
-
-
-@pytest.fixture(scope="module")
-def qapp() -> QApplication:
-    """Create QApplication for widget tests."""
-    app = QApplication.instance()
-    if app is None:
-        app = QApplication([])
-    return app
 
 
 def test_config_form_builds_widgets(qapp: QApplication) -> None:
@@ -48,7 +38,7 @@ def test_config_form_builds_widgets(qapp: QApplication) -> None:
     }
 
     builder = ConfigFormBuilder(schema, {"api_key": "sk-test", "model": "whisper-1"})
-    widget = builder.build()
+    builder.build()
 
     assert builder.get_widget("api_key") is not None
     assert builder.get_widget("model") is not None

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from PySide6.QtGui import QIcon, QAction
+from PySide6.QtGui import QAction, QIcon
 from PySide6.QtWidgets import QMenu, QSystemTrayIcon, QWidget
 
 
@@ -18,11 +18,12 @@ class TrayIcon(QSystemTrayIcon):
         super().__init__(parent)
 
         # Set icon
-        self.setIcon(QIcon.fromTheme(
-            "media-record",
-            QIcon(":/qt-project.org/styles/commonstyle/images/"
-                  "media-record-16.png"),
-        ))
+        self.setIcon(
+            QIcon.fromTheme(
+                "media-record",
+                QIcon(":/qt-project.org/styles/commonstyle/images/media-record-16.png"),
+            )
+        )
 
         self.setToolTip("LiveTranslator")
 
