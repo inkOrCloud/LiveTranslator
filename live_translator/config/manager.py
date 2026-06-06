@@ -22,16 +22,19 @@ DEFAULT_CONFIG: dict[str, Any] = {
             },
         },
         "translator": {
-            "active": "deepl",
+            "active": "litellm",
             "providers": {
                 "deepl": {
                     "api_key": "",
                     "target_lang": "ZH",
                 },
-                "gpt": {
-                    "api_key": "",
+                "litellm": {
                     "model": "gpt-4o-mini",
-                    "target_lang": "Chinese",
+                    "api_key": "",
+                    "api_base": "",
+                    "max_tokens": 1024,
+                    "temperature": 0.3,
+                    "system_prompt": "",
                 },
             },
         },

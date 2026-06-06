@@ -41,6 +41,7 @@ class LiveTranslatorApp:
     def register_default_services(self) -> None:
         """Register built-in service implementations."""
         from live_translator.services.deepl_translate import DeepLTranslateService
+        from live_translator.services.litellm_translate import LiteLLMTranslateService
         from live_translator.services.openai_realtime import OpenAIRealtimeService
 
         asr_config = self._config.get_service_config(
@@ -59,6 +60,15 @@ class LiveTranslatorApp:
         self._registry.register(
             "translator",
             DeepLTranslateService(t_config),
+        )
+
+        t_litellm_config = self._config.get_service_config(
+            "translator",
+            "litellm",
+        )
+        self._registry.register(
+            "translator",
+            LiteLLMTranslateService(t_litellm_config),
         )
 
     def _on_start(self) -> None:
