@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 
 import litellm
+from litellm.types.utils import ModelResponse
 
 
 class LiteLLMTranslateService:
@@ -107,8 +108,8 @@ class LiteLLMTranslateService:
             kwargs["temperature"] = temperature
 
         try:
-            response = litellm.completion(**kwargs)
-            return str(response.choices[0].message.content)
+            response = cast(ModelResponse, litellm.completion(**kwargs))
+            return str(response.choices[0].message.content)  # type: ignore[union-attr]
         except Exception as exc:
             msg = f"LiteLLM translation failed: {exc}"
             raise RuntimeError(msg) from exc
