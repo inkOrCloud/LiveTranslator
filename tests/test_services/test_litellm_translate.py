@@ -110,7 +110,7 @@ def test_supported_languages() -> None:
     for lang in langs:
         assert "code" in lang
         assert "name" in lang
-    codes = [l["code"] for l in langs]
+    codes = [lang["code"] for lang in langs]
     assert "ZH" in codes
     assert "EN" in codes
     assert "custom" in codes

@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import Any
 
+import litellm
+
 
 class LiteLLMTranslateService:
     """Translator implementation using LiteLLM SDK.
@@ -15,6 +17,8 @@ class LiteLLMTranslateService:
 
     service_id = "litellm"
     display_name = "LiteLLM (多模型)"
+
+    _NO_MODEL_MSG = "LiteLLM model not configured"
 
     def __init__(self, config: dict[str, Any] | None = None) -> None:
         """Initialize LiteLLM service.
@@ -49,7 +53,7 @@ class LiteLLMTranslateService:
         """
         model = self.config.get("model", "")
         if not model:
-            raise RuntimeError("LiteLLM model not configured")
+            raise RuntimeError(self._NO_MODEL_MSG)
 
         target = target_lang or self.config.get("target_lang", "Chinese")
 
@@ -77,8 +81,6 @@ class LiteLLMTranslateService:
                 },
                 {"role": "user", "content": text},
             ]
-
-        import litellm
 
         litellm.suppress_debug_info = True
         litellm.drop_params = True
@@ -108,7 +110,8 @@ class LiteLLMTranslateService:
             response = litellm.completion(**kwargs)
             return str(response.choices[0].message.content)
         except Exception as exc:
-            raise RuntimeError(f"LiteLLM translation failed: {exc}") from exc
+            msg = f"LiteLLM translation failed: {exc}"
+            raise RuntimeError(msg) from exc
 
     def translate_partial(
         self, text: str, source_lang: str = "auto", target_lang: str | None = None
