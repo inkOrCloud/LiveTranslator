@@ -7,8 +7,8 @@ from pathlib import Path
 
 from PySide6.QtWidgets import QApplication
 
-from live_translator.gui.main_window import MainWindow
 from live_translator.config.manager import ConfigManager
+from live_translator.gui.main_window import MainWindow
 
 
 def _make_config() -> ConfigManager:

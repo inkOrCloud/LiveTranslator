@@ -228,7 +228,7 @@ class LiveTranslatorApp:
             self._main_window.rebuild_config_forms,
         )
         self._main_window._translator_selector.currentIndexChanged.connect(
-            lambda: self._main_window.rebuild_config_forms(),
+            self._main_window.rebuild_config_forms,
         )
 
         # Poll ASR session messages via timer
