@@ -1,5 +1,7 @@
 # LiveTranslator — 同声传译实时语音翻译
 
+**DEMO视频**: 可能处于审核阶段[https://www.bilibili.com/video/BV1NsE86VErM/](https://www.bilibili.com/video/BV1NsE86VErM/)
+
 **LiveTranslator** is a real-time simultaneous interpretation application that captures system audio, performs speech recognition via cloud ASR services, and translates the transcribed text into your target language — displayed in a floating overlay window.
 
 ## Features
