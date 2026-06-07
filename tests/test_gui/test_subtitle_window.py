@@ -73,3 +73,92 @@ def test_subtitle_window_show_empty(qapp: QApplication) -> None:
     assert window.isVisible()
     window.hide()
     assert not window.isVisible()
+
+# ── Font size ────────────────────────────────────────────────────────
+
+def test_subtitle_window_font_size_smaller(qapp: QApplication) -> None:
+    """Font size should be 12 (one step smaller than current 14)."""
+    window = SubtitleWindow()
+    assert window._font_size == 12
+
+
+# ── Max lines ────────────────────────────────────────────────────────
+
+def test_subtitle_window_max_lines_six(qapp: QApplication) -> None:
+    """Max total lines should be 6."""
+    window = SubtitleWindow()
+    assert window._max_lines == 6
+
+
+# ── Ellipsis folding (truncation helper) ─────────────────────────────
+
+def test_truncate_with_ellipsis_under_limit(qapp: QApplication) -> None:
+    """Lines under max_lines should pass through unchanged."""
+    window = SubtitleWindow()
+    lines = ["line one", "line two"]
+    result = window._truncate_with_ellipsis(lines, 3)
+    assert result == ["line one", "line two"]
+
+
+def test_truncate_with_ellipsis_exact_limit(qapp: QApplication) -> None:
+    """Lines exactly at max_lines should pass through unchanged."""
+    window = SubtitleWindow()
+    lines = ["line one", "line two", "line three"]
+    result = window._truncate_with_ellipsis(lines, 3)
+    assert result == ["line one", "line two", "line three"]
+
+
+def test_truncate_with_ellipsis_over_limit(qapp: QApplication) -> None:
+    """Lines over max_lines should be truncated with '...' on the last line."""
+    window = SubtitleWindow()
+    lines = ["line one", "line two", "line three", "line four"]
+    result = window._truncate_with_ellipsis(lines, 3)
+    assert result == ["line one", "line two", "line three..."]
+
+
+def test_truncate_with_ellipsis_empty(qapp: QApplication) -> None:
+    """Empty list should return empty list."""
+    window = SubtitleWindow()
+    result = window._truncate_with_ellipsis([], 3)
+    assert result == []
+
+
+def test_truncate_with_ellipsis_max_lines_one(qapp: QApplication) -> None:
+    """Truncation with max_lines=1 should collapse to a single line with ellipsis."""
+    window = SubtitleWindow()
+    lines = ["a", "b", "c"]
+    result = window._truncate_with_ellipsis(lines, 1)
+    assert result == ["a..."]
+
+
+def test_subtitle_window_original_folded_at_three_lines(qapp: QApplication) -> None:
+    """Original text wrapping >3 lines should be folded to 3 with ellipsis."""
+    window = SubtitleWindow()
+    # Use a narrow width to force wrapping
+    long_text = "Hello world this is a very long sentence that should wrap into many lines " * 5
+    # Force window width small to trigger wrapping
+    window.set_window_width(200)
+    available_width = window._window_width - 2 * window._padding
+    from PySide6.QtGui import QFontMetrics
+    metrics = QFontMetrics(window._font)
+    lines = window._wrap_text(long_text, available_width, metrics)
+    # Ensure it wraps to more than 3 lines
+    assert len(lines) > 3, f"Expected >3 wrapped lines, got {len(lines)}"
+    folded = window._truncate_with_ellipsis(lines, 3)
+    assert len(folded) == 3
+    assert folded[-1].endswith("...")
+
+
+def test_subtitle_window_translation_folded_at_three_lines(qapp: QApplication) -> None:
+    """Translation text wrapping >3 lines should be folded to 3 with ellipsis."""
+    window = SubtitleWindow()
+    long_text = "这是一个非常长的中文句子它应该会换行成很多行这是一个非常长的中文句子它应该会换行成很多行 " * 5
+    window.set_window_width(200)
+    available_width = window._window_width - 2 * window._padding
+    from PySide6.QtGui import QFontMetrics
+    metrics = QFontMetrics(window._font)
+    lines = window._wrap_text(long_text, available_width, metrics)
+    assert len(lines) > 3, f"Expected >3 wrapped lines, got {len(lines)}"
+    folded = window._truncate_with_ellipsis(lines, 3)
+    assert len(folded) == 3
+    assert folded[-1].endswith("...")

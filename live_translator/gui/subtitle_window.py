@@ -40,7 +40,8 @@ class SubtitleWindow(QWidget):
     """A compact, draggable, always-on-top floating overlay window.
 
     Shows only the latest sentence (original + translation) with auto
-    word-wrap, max 4 lines of text. Draggable by left-click drag.
+    word-wrap, max 6 lines of text (3 per language). Draggable by
+    left-click drag.
     """
 
     def __init__(self, parent: QWidget | None = None) -> None:
@@ -71,12 +72,13 @@ class SubtitleWindow(QWidget):
         self._translated_text: str = ""
 
         # Layout constants
-        self._font_size = 14
+        self._font_size = 12
         self._padding = 10
         self._line_spacing = 4
         self._corner_radius = 8
         self._bg_opacity = 0.85
-        self._max_lines = 4
+        self._max_lines = 6
+        self._max_lines_per_text = 3  # Max lines per original/translation
         self._window_width = 720
 
         # Set up font
@@ -212,22 +214,45 @@ class SubtitleWindow(QWidget):
             self._drag_offset = None
             event.accept()
 
+    # ── Truncation helper ────────────────────────────────────────────
+
+    @staticmethod
+    def _truncate_with_ellipsis(lines: list[str], max_lines: int) -> list[str]:
+        """Truncate lines with an ellipsis suffix if over max_lines.
+
+        Args:
+            lines: Wrapped text lines.
+            max_lines: Maximum number of lines to show.
+
+        Returns:
+            Truncated lines; last line gets '...' appended when clipped.
+        """
+        if len(lines) <= max_lines:
+            return list(lines)
+        result = list(lines[:max_lines])
+        result[-1] = result[-1] + "..."
+        return result
+
     # ── Painting ─────────────────────────────────────────────────────
 
     def adjustSize(self) -> None:
-        """Calculate and set window height based on text content."""
+        """Calculate and set window height based on truncated text content."""
         metrics = QFontMetrics(self._font)
         line_height = metrics.height() + self._line_spacing
         available_width = self._window_width - 2 * self._padding
 
-        # Estimate how many lines we need
+        # Estimate how many lines we need, per-text capped at 3
         total_lines = 0
         if self._original_text:
-            orig_lines = self._count_wrap_lines(self._original_text, available_width, metrics)
-            total_lines += orig_lines
+            orig_lines = self._count_wrap_lines(
+                self._original_text, available_width, metrics
+            )
+            total_lines += min(orig_lines, self._max_lines_per_text)
         if self._translated_text:
-            trans_lines = self._count_wrap_lines(self._translated_text, available_width, metrics)
-            total_lines += trans_lines
+            trans_lines = self._count_wrap_lines(
+                self._translated_text, available_width, metrics
+            )
+            total_lines += min(trans_lines, self._max_lines_per_text)
 
         total_lines = min(total_lines, self._max_lines)
         total_lines = max(total_lines, 1)  # at least 1 line
@@ -359,9 +384,10 @@ class SubtitleWindow(QWidget):
         # Draw text (y starts at padding top edge, AlignTop aligns text to top of rect)
         y = self._padding
 
-        # Original text in light gray
+        # Original text in light gray, truncated to 3 lines
         if self._original_text:
             orig_lines = self._wrap_text(self._original_text, available_width, metrics)
+            orig_lines = self._truncate_with_ellipsis(orig_lines, self._max_lines_per_text)
             painter.setPen(QColor(200, 200, 200))
             painter.setFont(self._font)
             for line in orig_lines:
@@ -373,9 +399,10 @@ class SubtitleWindow(QWidget):
                 )
                 y += line_height
 
-        # Translated text in white
+        # Translated text in white, truncated to 3 lines
         if self._translated_text:
             trans_lines = self._wrap_text(self._translated_text, available_width, metrics)
+            trans_lines = self._truncate_with_ellipsis(trans_lines, self._max_lines_per_text)
             painter.setPen(QColor(255, 255, 255))
             painter.setFont(self._font)
             for line in trans_lines:
