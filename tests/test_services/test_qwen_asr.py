@@ -182,3 +182,246 @@ def test_qwen_asr_session_send_audio_lazy_connect() -> None:
         assert session._connected is True
         # Should have sent session.update + audio append
         assert mock_ws.send.call_count >= 2
+
+
+def test_qwen_asr_text_event_single_sentence() -> None:
+    """Single complete sentence in text event should trigger one on_final."""
+    service = QwenASRService({
+        "api_key": "test-key",
+        "model": "qwen3-asr-flash-realtime",
+    })
+    session = service.create_session()
+    final_results: list[str] = []
+    partial_results: list[str] = []
+    session.on_final(final_results.append)
+    session.on_partial(partial_results.append)
+
+    session._handle_text_event({
+        "type": "conversation.item.input_audio_transcription.text",
+        "text": "今天天气真好。",
+        "stash": "",
+    })
+
+    assert partial_results == ["今天天气真好。"]
+    assert final_results == ["今天天气真好。"]
+
+
+def test_qwen_asr_text_event_multiple_sentences() -> None:
+    """Multiple complete sentences in text event should trigger one on_final per sentence."""
+    service = QwenASRService({
+        "api_key": "test-key",
+        "model": "qwen3-asr-flash-realtime",
+    })
+    session = service.create_session()
+    final_results: list[str] = []
+    session.on_final(final_results.append)
+    session.on_partial(lambda _: None)
+
+    session._handle_text_event({
+        "type": "conversation.item.input_audio_transcription.text",
+        "text": "今天天气真好。你吃饭了吗？",
+        "stash": "",
+    })
+
+    assert final_results == ["今天天气真好。", "你吃饭了吗？"]
+
+
+def test_qwen_asr_text_event_no_sentence_boundary() -> None:
+    """Text without sentence-ending punctuation should not trigger on_final."""
+    service = QwenASRService({
+        "api_key": "test-key",
+        "model": "qwen3-asr-flash-realtime",
+    })
+    session = service.create_session()
+    final_results: list[str] = []
+    session.on_final(final_results.append)
+    session.on_partial(lambda _: None)
+
+    session._handle_text_event({
+        "type": "conversation.item.input_audio_transcription.text",
+        "text": "今天天气",
+        "stash": "真好",
+    })
+
+    # partial should include stash, but no final since no sentence boundary
+    assert final_results == []
+
+
+def test_qwen_asr_text_event_incremental_sentences() -> None:
+    """Incremental text updates should only emit newly completed sentences."""
+    service = QwenASRService({
+        "api_key": "test-key",
+        "model": "qwen3-asr-flash-realtime",
+    })
+    session = service.create_session()
+    final_results: list[str] = []
+    session.on_final(final_results.append)
+    session.on_partial(lambda _: None)
+
+    # First update: one sentence confirmed
+    session._handle_text_event({
+        "type": "conversation.item.input_audio_transcription.text",
+        "text": "今天天气真好。",
+        "stash": "",
+    })
+    assert final_results == ["今天天气真好。"]
+
+    # Second update: second sentence confirmed
+    session._handle_text_event({
+        "type": "conversation.item.input_audio_transcription.text",
+        "text": "今天天气真好。你吃饭了吗？",
+        "stash": "还剩",
+    })
+    assert final_results == ["今天天气真好。", "你吃饭了吗？"]
+
+
+def test_qwen_asr_text_event_regression() -> None:
+    """Text regression (prefix changed) should skip emission and reset state."""
+    service = QwenASRService({
+        "api_key": "test-key",
+        "model": "qwen3-asr-flash-realtime",
+    })
+    session = service.create_session()
+    session._emitted_text = "今天天气真好。"
+
+    final_results: list[str] = []
+    session.on_final(final_results.append)
+    session.on_partial(lambda _: None)
+
+    # New text regressed (different prefix)
+    session._handle_text_event({
+        "type": "conversation.item.input_audio_transcription.text",
+        "text": "昨天天气不错。",
+        "stash": "",
+    })
+
+    assert final_results == []  # No emission on regression
+    assert session._emitted_text == ""  # Reset
+
+
+def test_qwen_asr_text_event_duplicate() -> None:
+    """Identical text repeated should not emit duplicate finals."""
+    service = QwenASRService({
+        "api_key": "test-key",
+        "model": "qwen3-asr-flash-realtime",
+    })
+    session = service.create_session()
+    session._emitted_text = "今天天气真好。"
+
+    final_results: list[str] = []
+    session.on_final(final_results.append)
+    session.on_partial(lambda _: None)
+
+    session._handle_text_event({
+        "type": "conversation.item.input_audio_transcription.text",
+        "text": "今天天气真好。",
+        "stash": "你",
+    })
+
+    assert final_results == []  # No new text to emit
+    assert session._emitted_text == "今天天气真好。"  # Unchanged
+
+
+def test_qwen_asr_completed_event_remaining_text() -> None:
+    """Completed event should emit remaining text and reset state."""
+    service = QwenASRService({
+        "api_key": "test-key",
+        "model": "qwen3-asr-flash-realtime",
+    })
+    session = service.create_session()
+    session._emitted_text = "今天天气真好。"
+
+    final_results: list[str] = []
+    session.on_final(final_results.append)
+
+    session._handle_completed_event({
+        "type": "conversation.item.input_audio_transcription.completed",
+        "transcript": "今天天气真好。你吃饭了吗？",
+    })
+
+    assert final_results == ["你吃饭了吗？"]
+    assert session._emitted_text == ""  # Reset
+
+
+def test_qwen_asr_completed_event_all_emitted() -> None:
+    """Completed event when all text already emitted should not emit again."""
+    service = QwenASRService({
+        "api_key": "test-key",
+        "model": "qwen3-asr-flash-realtime",
+    })
+    session = service.create_session()
+    session._emitted_text = "今天天气真好。你吃饭了吗？"
+
+    final_results: list[str] = []
+    session.on_final(final_results.append)
+
+    session._handle_completed_event({
+        "type": "conversation.item.input_audio_transcription.completed",
+        "transcript": "今天天气真好。你吃饭了吗？",
+    })
+
+    assert final_results == []  # No duplicate
+    assert session._emitted_text == ""  # Reset
+
+
+def test_qwen_asr_completed_event_empty_transcript() -> None:
+    """Empty transcript should just reset state without emitting."""
+    service = QwenASRService({
+        "api_key": "test-key",
+        "model": "qwen3-asr-flash-realtime",
+    })
+    session = service.create_session()
+    session._emitted_text = "something"
+
+    final_results: list[str] = []
+    session.on_final(final_results.append)
+
+    session._handle_completed_event({
+        "type": "conversation.item.input_audio_transcription.completed",
+        "transcript": "",
+    })
+
+    assert final_results == []
+    assert session._emitted_text == ""
+
+
+def test_qwen_asr_completed_event_mismatch() -> None:
+    """Completed with mismatched transcript should fallback to full transcript."""
+    service = QwenASRService({
+        "api_key": "test-key",
+        "model": "qwen3-asr-flash-realtime",
+    })
+    session = service.create_session()
+    session._emitted_text = "今天天气真好。"  # Different from what server returns
+
+    final_results: list[str] = []
+    session.on_final(final_results.append)
+
+    session._handle_completed_event({
+        "type": "conversation.item.input_audio_transcription.completed",
+        "transcript": "昨天的天气",
+    })
+
+    assert final_results == ["昨天的天气"]  # Fallback to full transcript
+    assert session._emitted_text == ""  # Reset
+
+
+def test_qwen_asr_completed_event_blank_remaining() -> None:
+    """Completed with blank remaining (only whitespace) should not emit."""
+    service = QwenASRService({
+        "api_key": "test-key",
+        "model": "qwen3-asr-flash-realtime",
+    })
+    session = service.create_session()
+    session._emitted_text = "hello"
+
+    final_results: list[str] = []
+    session.on_final(final_results.append)
+
+    session._handle_completed_event({
+        "type": "conversation.item.input_audio_transcription.completed",
+        "transcript": "hello   ",
+    })
+
+    assert final_results == []  # Only whitespace
+    assert session._emitted_text == ""

@@ -4,12 +4,16 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from collections.abc import Callable
 from typing import Any
 
 from websockets.exceptions import ConnectionClosedError
 
 logger = logging.getLogger(__name__)
+
+# 匹配中英文句尾标点，用于句子级 final 检测
+_SENTENCE_END_RE = re.compile(r"(?<=[。！？.!?\n])")
 
 
 class _QwenASRSession:
@@ -42,6 +46,7 @@ class _QwenASRSession:
         self._on_error_cb = on_error
         self._ws: Any = None
         self._connected = False
+        self._emitted_text: str = ""
 
     def _connect(self) -> None:
         """Establish WebSocket connection to Qwen ASR Realtime API."""
@@ -122,6 +127,98 @@ class _QwenASRSession:
         """Register callback for errors."""
         self._on_error_cb = callback
 
+    def _handle_text_event(self, data: dict) -> None:
+        """Handle conversation.item.input_audio_transcription.text event.
+
+        Emits partial (text+stash) for UI display, and extracts complete
+        sentences from the confirmed ``text`` prefix to emit early ``final``
+        callbacks without waiting for the VAD segment to end.
+        """
+        text = data.get("text", "")
+        stash = data.get("stash", "")
+        combined = f"{text}{stash}"
+
+        # 1. Always emit partial for live display
+        if combined and self._on_partial_cb:
+            self._on_partial_cb(combined)
+
+        # 2. Validate text state
+        if not text:
+            return
+        if not text.startswith(self._emitted_text):
+            # ASR rescored — text prefix regressed, skip this round
+            logger.debug("Text prefix regression: emitted=%r text=%r", self._emitted_text, text)
+            self._emitted_text = ""
+            return
+        if len(text) <= len(self._emitted_text):
+            return  # No new confirmed content
+
+        # 3. Extract delta (newly confirmed prefix beyond what was emitted)
+        delta = text[len(self._emitted_text):]
+
+        # 4. Split delta into sentence candidates
+        parts = _SENTENCE_END_RE.split(delta)
+        # parts = ["句子1。", "句子2？", "剩余尾巴"]
+        # last element may be incomplete (no sentence-ending punctuation yet)
+        complete = parts[:-1]  # All except the last fragment are complete sentences
+        last = parts[-1] if parts else ""
+
+        if last and _SENTENCE_END_RE.search(last):
+            # The last fragment itself ends with punctuation -> also complete
+            complete = parts
+            self._emitted_text = text
+        elif complete:
+            # Advance _emitted_text past the complete sentences
+            emitted_len = 0
+            for s in complete:
+                emitted_len += len(s)
+            self._emitted_text = text[:len(self._emitted_text) + emitted_len]
+        else:
+            return  # No complete sentence in this delta
+
+        # 5. Emit final for each complete sentence
+        for sentence in complete:
+            stripped = sentence.strip()
+            if stripped and self._on_final_cb:
+                logger.debug(
+                    "Sentence-level final (%d chars): %s...",
+                    len(stripped), stripped[:60]
+                )
+                self._on_final_cb(stripped)
+
+    def _handle_completed_event(self, data: dict) -> None:
+        """Handle conversation.item.input_audio_transcription.completed event.
+
+        Emits any remaining text that was not yet dispatched via sentence-level
+        finals, then resets ``_emitted_text`` for the next VAD segment.
+        """
+        transcript = data.get("transcript", "")
+        if not transcript:
+            self._emitted_text = ""
+            return
+
+        # Extract remaining text beyond what was already emitted as sentence finals
+        if transcript.startswith(self._emitted_text) and len(transcript) > len(self._emitted_text):
+            remaining = transcript[len(self._emitted_text):]
+        elif transcript == self._emitted_text:
+            remaining = ""  # All text already emitted via sentence-level finals
+        else:
+            # transcript doesn't match _emitted_text — fallback to full transcript
+            logger.debug(
+                "Transcript mismatch in completed event: emitted=%r transcript=%r",
+                self._emitted_text, transcript,
+            )
+            remaining = transcript
+
+        if remaining.strip() and self._on_final_cb:
+            logger.debug(
+                "Completed-event final (%d chars): %s...",
+                len(remaining), remaining[:60]
+            )
+            self._on_final_cb(remaining.strip())
+
+        self._emitted_text = ""
+
     def _handle_messages(self) -> None:
         """Non-blocking read of incoming WebSocket messages."""
         if not self._ws or not self._connected:
@@ -132,16 +229,10 @@ class _QwenASRSession:
             msg_type = data.get("type", "")
 
             if msg_type == "conversation.item.input_audio_transcription.completed":
-                transcript = data.get("transcript", "")
-                if transcript and self._on_final_cb:
-                    self._on_final_cb(transcript)
+                self._handle_completed_event(data)
 
             elif msg_type == "conversation.item.input_audio_transcription.text":
-                text = data.get("text", "")
-                stash = data.get("stash", "")
-                combined = f"{text}{stash}"
-                if combined and self._on_partial_cb:
-                    self._on_partial_cb(combined)
+                self._handle_text_event(data)
 
             elif msg_type == "error":
                 error_msg = data.get("error", {}).get("message", "Unknown error")
@@ -151,14 +242,17 @@ class _QwenASRSession:
 
             elif msg_type in ("session.created", "session.updated"):
                 logger.info(
-                "Qwen ASR session %s: %s", msg_type,
-                data.get("session", {}).get("id", ""),
-            )
+                    "Qwen ASR session %s: %s",
+                    msg_type, data.get("session", {}).get("id", ""),
+                )
 
             elif msg_type in (
-                    "input_audio_buffer.speech_started",
-                    "input_audio_buffer.speech_stopped",
-                ):
+                "input_audio_buffer.speech_started",
+                "input_audio_buffer.speech_stopped",
+            ):
+                # Reset emitted text on new VAD segment for safety
+                if msg_type == "input_audio_buffer.speech_started":
+                    self._emitted_text = ""
                 logger.debug("Qwen ASR speech boundary: %s", msg_type)
 
             elif msg_type == "session.finished":
