@@ -7,6 +7,8 @@ import logging
 from collections.abc import Callable
 from typing import Any
 
+from websockets.exceptions import ConnectionClosedError
+
 logger = logging.getLogger(__name__)
 
 
@@ -27,8 +29,7 @@ class _QwenASRSession:
         Args:
             api_key: Alibaba Cloud DashScope API key.
             model: Model ID (e.g. ``qwen3-asr-flash-realtime``).
-            session_config: Optional dict with language, sample_rate,
-                input_audio_format, and VAD parameters.
+            session_config: Optional dict with language and VAD parameters.
             on_partial: Callback for partial transcription.
             on_final: Callback for final transcription.
             on_error: Callback for errors.
@@ -65,8 +66,8 @@ class _QwenASRSession:
         session_payload: dict[str, Any] = {
             "type": "session.update",
             "session": {
-                "input_audio_format": self._session_config.get("input_audio_format", "pcm"),
-                "sample_rate": self._session_config.get("sample_rate", 16000),
+                "input_audio_format": "pcm",
+                "sample_rate": 16000,
                 "input_audio_transcription": {
                     "language": self._session_config.get("language", "zh"),
                 },
@@ -91,17 +92,23 @@ class _QwenASRSession:
         if not self._connected:
             self._connect()
 
+        if not self._connected:
+            return
+
         import base64
 
         audio_b64 = base64.b64encode(chunk).decode("ascii")
-        self._ws.send(
-            json.dumps(
-                {
-                    "type": "input_audio_buffer.append",
-                    "audio": audio_b64,
-                }
+        try:
+            self._ws.send(
+                json.dumps(
+                    {
+                        "type": "input_audio_buffer.append",
+                        "audio": audio_b64,
+                    }
+                )
             )
-        )
+        except ConnectionClosedError:
+            self._connected = False
 
     def on_partial(self, callback: Callable[[str], None]) -> None:
         """Register callback for partial transcription."""
@@ -117,7 +124,7 @@ class _QwenASRSession:
 
     def _handle_messages(self) -> None:
         """Non-blocking read of incoming WebSocket messages."""
-        if not self._ws:
+        if not self._ws or not self._connected:
             return
         try:
             message = self._ws.recv(timeout=0.001)
@@ -138,6 +145,7 @@ class _QwenASRSession:
 
             elif msg_type == "error":
                 error_msg = data.get("error", {}).get("message", "Unknown error")
+                logger.error("Qwen ASR server error: %s", error_msg)
                 if self._on_error_cb:
                     self._on_error_cb(RuntimeError(error_msg))
 
@@ -154,10 +162,15 @@ class _QwenASRSession:
                 logger.debug("Qwen ASR speech boundary: %s", msg_type)
 
             elif msg_type == "session.finished":
+                self._connected = False
                 logger.info("Qwen ASR session finished")
 
         except TimeoutError:
             pass
+        except ConnectionClosedError:
+            logger.warning("Qwen ASR connection closed")
+            self._connected = False
+            self._ws = None
         except Exception as exc:
             logger.exception("Qwen ASR poll error")
             if self._on_error_cb:
@@ -165,6 +178,8 @@ class _QwenASRSession:
 
     def poll(self) -> None:
         """Poll for incoming messages. Called periodically from pipeline."""
+        if not self._connected:
+            return
         self._handle_messages()
 
     def close(self) -> None:
@@ -205,8 +220,6 @@ class QwenASRService:
             "api_key": "",
             "model": "qwen3-asr-flash-realtime",
             "language": "zh",
-            "sample_rate": 16000,
-            "input_audio_format": "pcm",
         }
 
     def create_session(self) -> _QwenASRSession:
@@ -224,8 +237,6 @@ class QwenASRService:
         model = self.config.get("model", "qwen3-asr-flash-realtime")
         session_config = {
             "language": self.config.get("language", "zh"),
-            "sample_rate": self.config.get("sample_rate", 16000),
-            "input_audio_format": self.config.get("input_audio_format", "pcm"),
             "vad_threshold": self.config.get("vad_threshold", 0.0),
             "vad_silence_duration_ms": self.config.get("vad_silence_duration_ms", 400),
         }
@@ -240,7 +251,7 @@ class QwenASRService:
         """Return JSON Schema for Qwen ASR Realtime configuration.
 
         Returns:
-            JSON Schema dict with api_key, model, language, sample_rate, format.
+            JSON Schema dict with api_key, model, language.
         """
         return {
             "type": "object",
@@ -268,18 +279,6 @@ class QwenASRService:
                         "zh", "yue", "en", "ja", "de", "ko", "ru", "fr", "pt",
                         "ar", "it", "es", "hi", "id", "th", "tr", "uk", "vi",
                     ],
-                },
-                "sample_rate": {
-                    "type": "integer",
-                    "title": "Sample Rate",
-                    "default": 16000,
-                    "enum": [8000, 16000],
-                },
-                "input_audio_format": {
-                    "type": "string",
-                    "title": "Audio Format",
-                    "default": "pcm",
-                    "enum": ["pcm", "opus"],
                 },
             },
             "required": ["api_key"],

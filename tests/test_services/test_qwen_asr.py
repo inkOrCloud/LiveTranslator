@@ -18,8 +18,6 @@ def test_qwen_asr_config_schema() -> None:
     assert schema["properties"]["api_key"]["format"] == "password"
     assert schema["properties"]["model"]["default"] == "qwen3-asr-flash-realtime"
     assert schema["properties"]["language"]["default"] == "zh"
-    assert schema["properties"]["sample_rate"]["default"] == 16000
-    assert schema["properties"]["input_audio_format"]["default"] == "pcm"
     assert "api_key" in schema["required"]
 
 
@@ -45,14 +43,11 @@ def test_qwen_asr_create_session_with_config() -> None:
         "api_key": "test-key-123",
         "model": "qwen3-asr-flash-realtime",
         "language": "en",
-        "sample_rate": 8000,
-        "input_audio_format": "opus",
     })
     session = service.create_session()
     assert session._api_key == "test-key-123"
     assert session._model == "qwen3-asr-flash-realtime"
     assert session._session_config["language"] == "en"
-    assert session._session_config["sample_rate"] == 8000
 
 
 def test_qwen_asr_session_partial_text() -> None:
