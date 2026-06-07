@@ -127,6 +127,65 @@ class _QwenASRSession:
         """Register callback for errors."""
         self._on_error_cb = callback
 
+    def _handle_text_event(self, data: dict) -> None:
+        """Handle conversation.item.input_audio_transcription.text event.
+
+        Emits partial (text+stash) for UI display, and extracts complete
+        sentences from the confirmed ``text`` prefix to emit early ``final``
+        callbacks without waiting for the VAD segment to end.
+        """
+        text = data.get("text", "")
+        stash = data.get("stash", "")
+        combined = f"{text}{stash}"
+
+        # 1. Always emit partial for live display
+        if combined and self._on_partial_cb:
+            self._on_partial_cb(combined)
+
+        # 2. Validate text state
+        if not text:
+            return
+        if not text.startswith(self._emitted_text):
+            # ASR rescored — text prefix regressed, skip this round
+            logger.debug("Text prefix regression: emitted=%r text=%r", self._emitted_text, text)
+            self._emitted_text = ""
+            return
+        if len(text) <= len(self._emitted_text):
+            return  # No new confirmed content
+
+        # 3. Extract delta (newly confirmed prefix beyond what was emitted)
+        delta = text[len(self._emitted_text):]
+
+        # 4. Split delta into sentence candidates
+        parts = _SENTENCE_END_RE.split(delta)
+        # parts = ["句子1。", "句子2？", "剩余尾巴"]
+        # last element may be incomplete (no sentence-ending punctuation yet)
+        complete = parts[:-1]  # All except the last fragment are complete sentences
+        last = parts[-1] if parts else ""
+
+        if last and _SENTENCE_END_RE.search(last):
+            # The last fragment itself ends with punctuation -> also complete
+            complete = parts
+            self._emitted_text = text
+        elif complete:
+            # Advance _emitted_text past the complete sentences
+            emitted_len = 0
+            for s in complete:
+                emitted_len += len(s)
+            self._emitted_text = text[:len(self._emitted_text) + emitted_len]
+        else:
+            return  # No complete sentence in this delta
+
+        # 5. Emit final for each complete sentence
+        for sentence in complete:
+            stripped = sentence.strip()
+            if stripped and self._on_final_cb:
+                logger.debug(
+                    "Sentence-level final (%d chars): %s...",
+                    len(stripped), stripped[:60]
+                )
+                self._on_final_cb(stripped)
+
     def _handle_messages(self) -> None:
         """Non-blocking read of incoming WebSocket messages."""
         if not self._ws or not self._connected:
