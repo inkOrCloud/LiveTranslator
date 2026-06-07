@@ -128,3 +128,55 @@ class HistoryItem(QFrame):
                 }
             """)
         logger.debug("HistoryItem latest=%s", is_latest)
+
+
+class PartialWidget(QFrame):
+    """Widget displaying real-time ASR partial transcription.
+
+    Shows the current partial/in-progress ASR transcription text
+    in a dark green card with a green left border.
+    """
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        """Initialize the partial widget.
+
+        Args:
+            parent: Optional parent widget.
+        """
+        super().__init__(parent)
+        self.setObjectName("PartialWidget")
+        self.setStyleSheet("""
+            PartialWidget {
+                background: rgba(13, 40, 24, 217);
+                border-left: 3px solid #4caf50;
+                border-radius: 4px;
+            }
+        """)
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(10, 6, 10, 6)
+        layout.setSpacing(4)
+
+        header = QLabel("实时转写")
+        header.setStyleSheet("color: #666666; font-size: 9px; background: transparent;")
+        layout.addWidget(header)
+
+        self._partial_label = QLabel("")
+        self._partial_label.setStyleSheet(
+            "color: #8bc34a; font-size: 11px; background: transparent;",
+        )
+        self._partial_label.setWordWrap(True)
+        layout.addWidget(self._partial_label)
+
+        layout.addStretch()
+
+        logger.debug("PartialWidget created")
+
+    def show_text(self, text: str) -> None:
+        """Update the displayed partial transcription text.
+
+        Args:
+            text: Partial transcription text to display.
+        """
+        self._partial_label.setText(text)
+        logger.debug("PartialWidget updated: text=%s", text[:60])
