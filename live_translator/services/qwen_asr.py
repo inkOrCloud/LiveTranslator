@@ -4,12 +4,16 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from collections.abc import Callable
 from typing import Any
 
 from websockets.exceptions import ConnectionClosedError
 
 logger = logging.getLogger(__name__)
+
+# 匹配中英文句尾标点，用于句子级 final 检测
+_SENTENCE_END_RE = re.compile(r"(?<=[。！？.!?\n])")
 
 
 class _QwenASRSession:
@@ -42,6 +46,7 @@ class _QwenASRSession:
         self._on_error_cb = on_error
         self._ws: Any = None
         self._connected = False
+        self._emitted_text: str = ""
 
     def _connect(self) -> None:
         """Establish WebSocket connection to Qwen ASR Realtime API."""
