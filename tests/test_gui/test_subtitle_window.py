@@ -64,3 +64,12 @@ def test_subtitle_window_width_config(qapp: QApplication) -> None:
     window = SubtitleWindow()
     window.set_window_width(400)
     assert window.width() == 400
+
+
+def test_subtitle_window_show_empty(qapp: QApplication) -> None:
+    """SubtitleWindow.show() should work even without text content."""
+    window = SubtitleWindow()
+    window.show()
+    assert window.isVisible()
+    window.hide()
+    assert not window.isVisible()

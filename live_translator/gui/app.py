@@ -192,7 +192,10 @@ class LiveTranslatorApp:
             and self._pipeline is not None
             and self._pipeline.status == PipelineStatus.STREAMING
         )
-        if not show:
+        if show:
+            self._subtitle_window.show()
+            self._subtitle_window.raise_()
+        else:
             self._subtitle_window.clear()
 
     def _update_status_text(self) -> None:
