@@ -17,10 +17,10 @@ from live_translator.services.registry import ServiceRegistry
 
 if TYPE_CHECKING:
     from live_translator.gui.main_window import MainWindow
-    from live_translator.gui.subtitle_window import SubtitleWindow
+    from live_translator.gui.translation_overlay import TranslationOverlayWindow
     from live_translator.gui.tray_icon import TrayIcon
 
-from live_translator.gui.subtitle_window import ensure_xwayland_for_kde
+from live_translator.gui.translation_overlay import ensure_xwayland_for_kde
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +38,7 @@ class LiveTranslatorApp:
         self._registry = ServiceRegistry()
         self._pipeline: PipelineScheduler | None = None
         self._main_window: MainWindow | None = None
-        self._subtitle_window: SubtitleWindow | None = None
+        self._overlay_window: TranslationOverlayWindow | None = None
         self._tray_icon: TrayIcon | None = None
         self._poll_timer: QTimer | None = None
         self._config_forms: dict[str, ConfigFormBuilder] = {}
@@ -139,8 +139,8 @@ class LiveTranslatorApp:
         Args:
             text: Partial transcription text.
         """
-        if self._subtitle_window:
-            self._subtitle_window.show_latest(text, "")
+        if self._overlay_window:
+            self._overlay_window.show_partial(text)
 
     def _on_translation(self, original: str, translated: str) -> None:
         """Handle completed translation.
@@ -149,8 +149,10 @@ class LiveTranslatorApp:
             original: Original text.
             translated: Translated text.
         """
-        if self._subtitle_window:
-            self._subtitle_window.show_latest(original, translated)
+        if self._overlay_window:
+            self._overlay_window.add_history(original, translated)
+        if self._overlay_window:
+            self._overlay_window.show_partial("")
         if self._main_window:
             self._main_window.add_history_entry(original, translated)
 
@@ -162,7 +164,7 @@ class LiveTranslatorApp:
         """
         logger.info("Pipeline status changed: %s", status.name)
         self._update_status_text()
-        self._update_subtitle_visibility()
+        self._update_overlay_visibility()
 
     def _on_error(self, message: str) -> None:
         """Handle pipeline error.
@@ -181,11 +183,11 @@ class LiveTranslatorApp:
             checked: True if subtitle should be shown when active.
         """
         del checked
-        self._update_subtitle_visibility()
+        self._update_overlay_visibility()
 
-    def _update_subtitle_visibility(self) -> None:
+    def _update_overlay_visibility(self) -> None:
         """Update subtitle window visibility based on toggle + pipeline state."""
-        if self._main_window is None or self._subtitle_window is None:
+        if self._main_window is None or self._overlay_window is None:
             return
         show = (
             self._main_window._subtitle_toggle.isChecked()
@@ -193,10 +195,10 @@ class LiveTranslatorApp:
             and self._pipeline.status == PipelineStatus.STREAMING
         )
         if show:
-            self._subtitle_window.show()
-            self._subtitle_window.raise_()
+            self._overlay_window.show()
+            self._overlay_window.raise_()
         else:
-            self._subtitle_window.clear()
+            self._overlay_window.clear()
 
     def _update_status_text(self) -> None:
         """Update status label from pipeline state."""
@@ -327,13 +329,13 @@ class LiveTranslatorApp:
         app = QApplication(sys.argv)
 
         from live_translator.gui.main_window import MainWindow
-        from live_translator.gui.subtitle_window import SubtitleWindow
+        from live_translator.gui.translation_overlay import TranslationOverlayWindow
         from live_translator.gui.tray_icon import TrayIcon
 
         self._main_window = MainWindow(self._config, self._registry)
-        self._subtitle_window = SubtitleWindow()
+        self._overlay_window = TranslationOverlayWindow()
 
-        logger.debug("MainWindow and SubtitleWindow created")
+        logger.debug("MainWindow and TranslationOverlayWindow created")
 
         # Register default services
         self.register_default_services()
