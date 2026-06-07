@@ -186,6 +186,39 @@ class _QwenASRSession:
                 )
                 self._on_final_cb(stripped)
 
+    def _handle_completed_event(self, data: dict) -> None:
+        """Handle conversation.item.input_audio_transcription.completed event.
+
+        Emits any remaining text that was not yet dispatched via sentence-level
+        finals, then resets ``_emitted_text`` for the next VAD segment.
+        """
+        transcript = data.get("transcript", "")
+        if not transcript:
+            self._emitted_text = ""
+            return
+
+        # Extract remaining text beyond what was already emitted as sentence finals
+        if transcript.startswith(self._emitted_text) and len(transcript) > len(self._emitted_text):
+            remaining = transcript[len(self._emitted_text):]
+        elif transcript == self._emitted_text:
+            remaining = ""  # All text already emitted via sentence-level finals
+        else:
+            # transcript doesn't match _emitted_text — fallback to full transcript
+            logger.debug(
+                "Transcript mismatch in completed event: emitted=%r transcript=%r",
+                self._emitted_text, transcript,
+            )
+            remaining = transcript
+
+        if remaining.strip() and self._on_final_cb:
+            logger.debug(
+                "Completed-event final (%d chars): %s...",
+                len(remaining), remaining[:60]
+            )
+            self._on_final_cb(remaining.strip())
+
+        self._emitted_text = ""
+
     def _handle_messages(self) -> None:
         """Non-blocking read of incoming WebSocket messages."""
         if not self._ws or not self._connected:
