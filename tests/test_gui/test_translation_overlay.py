@@ -60,3 +60,93 @@ def test_partial_widget_word_wrap(qapp: QApplication) -> None:
     """Partial label should have word wrap enabled."""
     pw = PartialWidget()
     assert pw._partial_label.wordWrap()
+
+
+from live_translator.gui.translation_overlay import TranslationOverlayWindow
+
+
+def test_overlay_creation(qapp: QApplication) -> None:
+    """Window should have correct flags."""
+    window = TranslationOverlayWindow()
+    flags = window.windowFlags()
+    assert flags & Qt.WindowType.FramelessWindowHint
+    assert flags & Qt.WindowType.WindowStaysOnTopHint
+    assert window.testAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+    assert window.testAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
+
+
+def test_overlay_default_hidden(qapp: QApplication) -> None:
+    """Window should start hidden."""
+    window = TranslationOverlayWindow()
+    assert not window.isVisible()
+
+
+def test_overlay_add_history(qapp: QApplication) -> None:
+    """add_history should append a history item."""
+    window = TranslationOverlayWindow()
+    window.add_history("Hello", "你好")
+    window.add_history("World", "世界")
+    count = 0
+    for i in range(window._scroll_layout.count()):
+        widget = window._scroll_layout.itemAt(i).widget()
+        if isinstance(widget, HistoryItem):
+            count += 1
+    assert count == 2
+
+
+def test_overlay_add_history_latest_styling(qapp: QApplication) -> None:
+    """Only the most recent item should have latest=True."""
+    window = TranslationOverlayWindow()
+    window.add_history("First", "第一")
+    window.add_history("Second", "第二")
+    items: list[HistoryItem] = []
+    for i in range(window._scroll_layout.count()):
+        widget = window._scroll_layout.itemAt(i).widget()
+        if isinstance(widget, HistoryItem):
+            items.append(widget)
+    assert len(items) == 2
+    assert not items[0]._latest
+    assert items[1]._latest
+
+
+def test_overlay_show_partial(qapp: QApplication) -> None:
+    """show_partial should update the partial widget text."""
+    window = TranslationOverlayWindow()
+    window.show_partial("Hello world")
+    assert window._partial_widget._partial_label.text() == "Hello world"
+
+
+def test_overlay_clear(qapp: QApplication) -> None:
+    """clear should remove all history, clear partial, and hide."""
+    window = TranslationOverlayWindow()
+    window.show()
+    window.add_history("Test", "测试")
+    window.show_partial("Partial")
+    window.clear()
+    assert not window.isVisible()
+    assert window._partial_widget._partial_label.text() == ""
+    for i in range(window._scroll_layout.count()):
+        widget = window._scroll_layout.itemAt(i).widget()
+        assert not isinstance(widget, HistoryItem)
+
+
+def test_overlay_history_cap(qapp: QApplication) -> None:
+    """History should be capped at max_history entries."""
+    window = TranslationOverlayWindow()
+    window._max_history = 3  # Override for test speed
+    for i in range(5):
+        window.add_history(f"Item {i}", f"条目 {i}")
+    count = 0
+    for i in range(window._scroll_layout.count()):
+        widget = window._scroll_layout.itemAt(i).widget()
+        if isinstance(widget, HistoryItem):
+            count += 1
+    assert count <= 3
+
+
+def test_overlay_aspect_ratio(qapp: QApplication) -> None:
+    """Window should maintain 1:2 aspect ratio on resize."""
+    window = TranslationOverlayWindow()
+    window.resize(500, 300)
+    expected_height = window.width() * 2
+    assert window.height() == expected_height
