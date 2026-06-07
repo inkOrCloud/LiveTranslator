@@ -43,6 +43,7 @@ class LiveTranslatorApp:
         from live_translator.services.deepl_translate import DeepLTranslateService
         from live_translator.services.litellm_translate import LiteLLMTranslateService
         from live_translator.services.openai_realtime import OpenAIRealtimeService
+        from live_translator.services.qwen_asr import QwenASRService
 
         asr_config = self._config.get_service_config(
             "asr",
@@ -51,6 +52,14 @@ class LiveTranslatorApp:
         self._registry.register(
             "asr",
             OpenAIRealtimeService(asr_config),
+        )
+        qwen_asr_config = self._config.get_service_config(
+            "asr",
+            "qwen_asr",
+        )
+        self._registry.register(
+            "asr",
+            QwenASRService(qwen_asr_config),
         )
 
         t_config = self._config.get_service_config(
