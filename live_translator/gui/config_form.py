@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from PySide6.QtWidgets import (
@@ -14,6 +15,8 @@ from PySide6.QtWidgets import (
     QSpinBox,
     QWidget,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class ConfigFormBuilder:
@@ -41,6 +44,12 @@ class ConfigFormBuilder:
         self._widgets: dict[str, QWidget] = {}
         self._widget: QGroupBox | None = None
 
+        logger.debug(
+            "ConfigFormBuilder created: title=%s, properties=%s",
+            schema.get("title", "untitled"),
+            list(schema.get("properties", {}).keys()),
+        )
+
     def build(self) -> QGroupBox:
         """Build the form widget.
 
@@ -59,6 +68,7 @@ class ConfigFormBuilder:
             layout.addRow(label, widget)
 
         self._widget = group
+        logger.debug("Config form built: %s (%d fields)", title, len(properties))
         return group
 
     def _create_widget(self, key: str, prop_schema: dict[str, Any]) -> QWidget:
@@ -76,6 +86,8 @@ class ConfigFormBuilder:
         default = prop_schema.get("default")
         current = self._values.get(key, default)
         description = prop_schema.get("description", "")
+
+        logger.debug("Creating widget for '%s': type=%s, format=%s", key, prop_type, fmt)
 
         if prop_type == "string" and fmt == "password":
             widget = QLineEdit()
@@ -157,6 +169,7 @@ class ConfigFormBuilder:
         for key, widget in self._widgets.items():
             values[key] = self._read_widget(widget)
 
+        logger.debug("Config form values collected: %s", list(values.keys()))
         return values
 
     @staticmethod

@@ -2,10 +2,15 @@
 
 from __future__ import annotations
 
-from typing import Any, cast
+import logging
+from typing import TYPE_CHECKING, Any, cast
 
 import litellm
-from litellm.types.utils import ModelResponse
+
+if TYPE_CHECKING:
+    from litellm.types.utils import ModelResponse
+
+logger = logging.getLogger(__name__)
 
 
 class LiteLLMTranslateService:
@@ -35,6 +40,9 @@ class LiteLLMTranslateService:
             "temperature": 0.3,
             "system_prompt": "",
         }
+        logger.debug("LiteLLMTranslateService initialized: model=%s, api_base=%s",
+                     self.config.get("model", "unknown"),
+                     self.config.get("api_base", "(default)"))
 
     def translate(
         self, text: str, source_lang: str = "auto", target_lang: str | None = None
@@ -57,6 +65,15 @@ class LiteLLMTranslateService:
             raise RuntimeError(self._NO_MODEL_MSG)
 
         target = target_lang or self.config.get("target_lang", "Chinese")
+
+        logger.info(
+            "LiteLLM translate: text_len=%d, source=%s, target=%s, model=%s",
+            len(text),
+            source_lang,
+            target,
+            model,
+        )
+        logger.debug("Translation input (first 100 chars): %s", text[:100])
 
         # Build the prompt
         system_prompt = self.config.get("system_prompt", "")
@@ -98,6 +115,7 @@ class LiteLLMTranslateService:
         api_base = self.config.get("api_base", "")
         if api_base:
             kwargs["api_base"] = api_base
+            logger.debug("Using custom API base: %s", api_base)
 
         max_tokens = self.config.get("max_tokens")
         if max_tokens:
@@ -108,11 +126,20 @@ class LiteLLMTranslateService:
             kwargs["temperature"] = temperature
 
         try:
-            response = cast(ModelResponse, litellm.completion(**kwargs))
-            return str(response.choices[0].message.content)  # type: ignore[union-attr]
-        except Exception as exc:
-            msg = f"LiteLLM translation failed: {exc}"
-            raise RuntimeError(msg) from exc
+            response = cast("ModelResponse", litellm.completion(**kwargs))
+            result = str(response.choices[0].message.content)
+            logger.info(
+                "LiteLLM translation success: input_len=%d, output_len=%d",
+                len(text),
+                len(result),
+            )
+            logger.debug("Translation output (first 100 chars): %s", result[:100])
+        except Exception:
+            msg = f"LiteLLM translation failed (model={model}, text_len={len(text)})"
+            logger.exception(msg)
+            raise RuntimeError(msg) from None
+        else:
+            return result
 
     def translate_partial(
         self, text: str, source_lang: str = "auto", target_lang: str | None = None

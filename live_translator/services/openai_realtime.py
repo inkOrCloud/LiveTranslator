@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 import json
+import logging
 from collections.abc import Callable
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 
 class _RealtimeSession:
@@ -35,6 +38,8 @@ class _RealtimeSession:
         self._ws: Any = None
         self._connected = False
 
+        logger.debug("RealtimeSession created: model=%s", model)
+
     def _connect(self) -> None:
         """Establish WebSocket connection to OpenAI Realtime API."""
         try:
@@ -46,31 +51,41 @@ class _RealtimeSession:
             ) from None
 
         url = f"wss://api.openai.com/v1/realtime?model={self._model}"
-        self._ws = ws_client.connect(
-            url,
-            additional_headers={
-                "Authorization": f"Bearer {self._api_key}",
-                "OpenAI-Beta": "realtime=v1",
-            },
-        )
-        self._connected = True
+        logger.info("Connecting to OpenAI Realtime API: model=%s", self._model)
 
-        # Send session update to enable audio transcription
-        self._ws.send(
-            json.dumps(
-                {
-                    "type": "session.update",
-                    "session": {
-                        "modalities": ["text"],
-                        "instructions": "",
-                        "input_audio_transcription": {
-                            "enabled": True,
-                            "model": "whisper-1",
-                        },
-                    },
-                }
+        try:
+            self._ws = ws_client.connect(
+                url,
+                additional_headers={
+                    "Authorization": f"Bearer {self._api_key[:8]}...",
+                    "OpenAI-Beta": "realtime=v1",
+                },
             )
-        )
+            self._connected = True
+            logger.info("OpenAI Realtime WebSocket connected")
+
+            # Send session update to enable audio transcription
+            self._ws.send(
+                json.dumps(
+                    {
+                        "type": "session.update",
+                        "session": {
+                            "modalities": ["text"],
+                            "instructions": "",
+                            "input_audio_transcription": {
+                                "enabled": True,
+                                "model": "whisper-1",
+                            },
+                        },
+                    }
+                )
+            )
+            logger.debug("Session update sent to OpenAI Realtime API")
+
+        except Exception:
+            logger.exception("Failed to connect to OpenAI Realtime API")
+            self._connected = False
+            raise
 
     def send_audio(self, chunk: bytes) -> None:
         """Send an audio chunk (PCM16, 16kHz, mono) for recognition.
@@ -84,14 +99,19 @@ class _RealtimeSession:
         import base64
 
         audio_b64 = base64.b64encode(chunk).decode("ascii")
-        self._ws.send(
-            json.dumps(
-                {
-                    "type": "input_audio_buffer.append",
-                    "audio": audio_b64,
-                }
+        try:
+            self._ws.send(
+                json.dumps(
+                    {
+                        "type": "input_audio_buffer.append",
+                        "audio": audio_b64,
+                    }
+                )
             )
-        )
+        except Exception as exc:
+            logger.exception("Failed to send audio chunk")
+            if self._on_error_cb:
+                self._on_error_cb(exc)
 
     def on_partial(self, callback: Callable[[str], None]) -> None:
         """Register callback for partial transcription."""
@@ -116,22 +136,43 @@ class _RealtimeSession:
 
             if msg_type == "conversation.item.input_audio_transcription.completed":
                 transcript = data.get("transcript", "")
+                if transcript:
+                    logger.debug("OpenAI ASR final transcript (%d chars): %s...",
+                                 len(transcript), transcript[:60])
                 if transcript and self._on_final_cb:
                     self._on_final_cb(transcript)
 
             elif msg_type == "conversation.item.input_audio_transcription.in_progress":
                 transcript = data.get("transcript", "")
                 if transcript and self._on_partial_cb:
+                    logger.debug("OpenAI ASR partial transcript (%d chars)", len(transcript))
                     self._on_partial_cb(transcript)
 
             elif msg_type == "error":
                 error_msg = data.get("error", {}).get("message", "Unknown error")
+                logger.error("OpenAI Realtime API server error: %s", error_msg)
                 if self._on_error_cb:
                     self._on_error_cb(RuntimeError(error_msg))
+
+            elif msg_type in ("session.created", "session.updated"):
+                logger.info("OpenAI Realtime session %s", msg_type)
+
+            elif msg_type in (
+                    "input_audio_buffer.speech_started",
+                    "input_audio_buffer.speech_stopped",
+                ):
+                logger.debug("OpenAI speech boundary: %s", msg_type)
+
+            elif msg_type == "response.done":
+                logger.debug("OpenAI response done")
+
+            else:
+                logger.debug("OpenAI unhandled message type: %s", msg_type)
 
         except TimeoutError:
             pass
         except Exception as exc:
+            logger.exception("OpenAI Realtime poll error")
             if self._on_error_cb:
                 self._on_error_cb(exc)
 
@@ -143,11 +184,13 @@ class _RealtimeSession:
         """Close the WebSocket connection."""
         self._connected = False
         if self._ws:
+            logger.info("Closing OpenAI Realtime WebSocket connection")
             try:
                 self._ws.close()
             except Exception:
-                pass
+                logger.debug("Ignored error closing WebSocket", exc_info=True)
             self._ws = None
+        logger.debug("OpenAI Realtime session closed")
 
     @property
     def is_alive(self) -> bool:
@@ -171,6 +214,8 @@ class OpenAIRealtimeService:
             "api_key": "",
             "model": "gpt-4o-realtime-preview",
         }
+        logger.debug("OpenAIRealtimeService initialized: model=%s",
+                     self.config.get("model", "unknown"))
 
     def create_session(self) -> _RealtimeSession:
         """Create a new streaming recognition session.
@@ -185,6 +230,7 @@ class OpenAIRealtimeService:
         if not api_key:
             raise RuntimeError("OpenAI API key not configured")
         model = self.config.get("model", "gpt-4o-realtime-preview")
+        logger.info("Creating OpenAI Realtime session: model=%s", model)
         return _RealtimeSession(
             api_key=api_key,
             model=model,

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import logging
+
 from PySide6.QtWidgets import (
     QComboBox,
     QFrame,
@@ -19,6 +21,8 @@ from PySide6.QtWidgets import (
 from live_translator.config.manager import ConfigManager
 from live_translator.gui.config_form import ConfigFormBuilder
 from live_translator.services.registry import ServiceRegistry
+
+logger = logging.getLogger(__name__)
 
 
 class MainWindow(QMainWindow):
@@ -43,6 +47,7 @@ class MainWindow(QMainWindow):
         self.resize(500, 700)
 
         self._build_ui()
+        logger.info("MainWindow initialized")
 
     def _build_ui(self) -> None:
         """Build the main window UI."""
@@ -160,11 +165,21 @@ class MainWindow(QMainWindow):
         idx = self._asr_selector.findData(active_asr)
         if idx >= 0:
             self._asr_selector.setCurrentIndex(idx)
+        else:
+            logger.warning("Active ASR service '%s' not found in registry", active_asr)
 
         active_t = self._config.get_active_service("translator")
         idx = self._translator_selector.findData(active_t)
         if idx >= 0:
             self._translator_selector.setCurrentIndex(idx)
+        else:
+            logger.warning("Active translator service '%s' not found in registry", active_t)
+
+        logger.debug(
+            "Service selectors populated: asr=%s, translator=%s",
+            active_asr,
+            active_t,
+        )
 
     def rebuild_config_forms(self) -> None:
         """Rebuild config forms for selected services."""
@@ -173,8 +188,11 @@ class MainWindow(QMainWindow):
         self._clear_layout(self._translator_config_layout)
         self._config_forms.clear()
 
-        # Build ASR config form
         active_asr = self._asr_selector.currentData()
+        active_t = self._translator_selector.currentData()
+        logger.debug("Rebuilding config forms: asr=%s, translator=%s", active_asr, active_t)
+
+        # Build ASR config form
         asr_service = self._registry.get("asr", active_asr)
         if asr_service is not None:
             schema = asr_service.config_schema()
@@ -183,9 +201,9 @@ class MainWindow(QMainWindow):
             form = builder.build()
             self._asr_config_layout.addWidget(form)
             self._config_forms[f"asr.{active_asr}"] = builder
+            logger.debug("ASR config form built for '%s'", active_asr)
 
         # Build Translator config form
-        active_t = self._translator_selector.currentData()
         t_service = self._registry.get("translator", active_t)
         if t_service is not None:
             schema = t_service.config_schema()
@@ -197,6 +215,7 @@ class MainWindow(QMainWindow):
             form = builder.build()
             self._translator_config_layout.addWidget(form)
             self._config_forms[f"translator.{active_t}"] = builder
+            logger.debug("Translator config form built for '%s'", active_t)
 
     @staticmethod
     def _clear_layout(layout: QVBoxLayout) -> None:
@@ -225,6 +244,8 @@ class MainWindow(QMainWindow):
         while self._history_list.count() > 200:
             self._history_list.takeItem(self._history_list.count() - 1)
 
+        logger.debug("History entry added (%d total)", self._history_list.count())
+
     def get_languages(self) -> tuple[str, str]:
         """Get selected source and target language codes.
 
@@ -233,7 +254,10 @@ class MainWindow(QMainWindow):
         """
         src = self._source_lang.currentData()
         tgt = self._target_lang.currentData()
-        return str(src) if src else "auto", str(tgt) if tgt else "ZH"
+        source = str(src) if src else "auto"
+        target = str(tgt) if tgt else "ZH"
+        logger.debug("Language selection: source=%s, target=%s", source, target)
+        return source, target
 
     def set_status(self, text: str) -> None:
         """Set the status label text.
@@ -242,3 +266,4 @@ class MainWindow(QMainWindow):
             text: Status text to display.
         """
         self._status_label.setText(f"Status: {text}")
+        logger.debug("Status updated: %s", text)

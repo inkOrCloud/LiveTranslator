@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 
 class ServiceRegistry:
@@ -18,6 +21,7 @@ class ServiceRegistry:
             "asr": {},
             "translator": {},
         }
+        logger.debug("ServiceRegistry initialized")
 
     def register(self, category: str, service: Any) -> None:
         """Register a service under a category.
@@ -29,6 +33,12 @@ class ServiceRegistry:
         if category not in self._services:
             self._services[category] = {}
         self._services[category][service.service_id] = service
+        logger.info(
+            "Service registered: category=%s, id=%s, name=%s",
+            category,
+            service.service_id,
+            getattr(service, "display_name", service.service_id),
+        )
 
     def get(self, category: str, service_id: str) -> Any | None:
         """Get a registered service by category and ID.
@@ -40,7 +50,12 @@ class ServiceRegistry:
         Returns:
             The service instance, or None if not found.
         """
-        return self._services.get(category, {}).get(service_id)
+        service = self._services.get(category, {}).get(service_id)
+        if service is None:
+            logger.warning("Service not found: category=%s, id=%s", category, service_id)
+        else:
+            logger.debug("Service lookup: category=%s, id=%s -> found", category, service_id)
+        return service
 
     def list_services(self, category: str) -> list[str]:
         """List all registered service IDs in a category.
@@ -51,7 +66,9 @@ class ServiceRegistry:
         Returns:
             A list of service ID strings.
         """
-        return list(self._services.get(category, {}).keys())
+        service_ids = list(self._services.get(category, {}).keys())
+        logger.debug("List services: category=%s -> %s", category, service_ids)
+        return service_ids
 
     def list_display_names(self, category: str) -> dict[str, str]:
         """Map service IDs to display names in a category.
@@ -62,4 +79,6 @@ class ServiceRegistry:
         Returns:
             Dict mapping service_id -> display_name.
         """
-        return {sid: svc.display_name for sid, svc in self._services.get(category, {}).items()}
+        result = {sid: svc.display_name for sid, svc in self._services.get(category, {}).items()}
+        logger.debug("List display names: category=%s -> %s", category, result)
+        return result

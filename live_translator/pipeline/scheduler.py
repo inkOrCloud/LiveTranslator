@@ -48,6 +48,12 @@ class PipelineScheduler:
         self.on_status_change: Callable[[PipelineStatus], None] | None = None
         self.on_error: Callable[[str], None] | None = None
 
+        logger.info(
+            "PipelineScheduler created: asr=%s, translator=%s",
+            getattr(asr_service, "service_id", "?"),
+            getattr(translator, "service_id", "?"),
+        )
+
     @property
     def status(self) -> PipelineStatus:
         """Current pipeline status."""
@@ -56,26 +62,35 @@ class PipelineScheduler:
     def start(self) -> None:
         """Start the pipeline: begin audio capture and ASR session."""
         if self._status == PipelineStatus.STREAMING:
-            logger.warning("Pipeline already streaming")
+            logger.warning("Pipeline already streaming, ignoring start")
             return
+
+        logger.info(
+            "Starting pipeline: source_lang=%s, target_lang=%s",
+            self._source_lang,
+            self._target_lang,
+        )
 
         self._asr_session = self._asr_service.create_session()
         self._asr_session.on_partial(self._on_asr_partial)
         self._asr_session.on_final(self._on_asr_final)
         self._asr_session.on_error(self._on_asr_error)
+        logger.debug("ASR session created and callbacks registered")
 
         self._audio_source.start(self._on_audio_chunk)
 
         self._set_status(PipelineStatus.STREAMING)
-        logger.info("Pipeline started")
+        logger.info("Pipeline started successfully")
 
     def stop(self) -> None:
         """Stop the pipeline and release resources."""
+        logger.info("Stopping pipeline")
         self._audio_source.stop()
 
         if self._asr_session is not None:
             self._asr_session.close()
             self._asr_session = None
+            logger.debug("ASR session closed")
 
         self._set_status(PipelineStatus.IDLE)
         logger.info("Pipeline stopped")
@@ -83,21 +98,25 @@ class PipelineScheduler:
     def pause(self) -> None:
         """Pause the pipeline (stop audio capture, keep session)."""
         if self._status != PipelineStatus.STREAMING:
+            logger.debug("Ignoring pause: current status=%s", self._status.name)
             return
         self._audio_source.stop()
         self._set_status(PipelineStatus.PAUSED)
-        logger.info("Pipeline paused")
+        logger.info("Pipeline paused (audio capture stopped, session preserved)")
 
     def resume(self) -> None:
         """Resume the pipeline."""
         if self._status != PipelineStatus.PAUSED:
+            logger.debug("Ignoring resume: current status=%s", self._status.name)
             return
         if self._asr_session is None or not self._asr_session.is_alive:
             # Session expired, create a new one
+            logger.info("ASR session expired or None, creating new session")
             self._asr_session = self._asr_service.create_session()
             self._asr_session.on_partial(self._on_asr_partial)
             self._asr_session.on_final(self._on_asr_final)
             self._asr_session.on_error(self._on_asr_error)
+            logger.debug("New ASR session created during resume")
 
         self._audio_source.start(self._on_audio_chunk)
         self._set_status(PipelineStatus.STREAMING)
@@ -110,6 +129,7 @@ class PipelineScheduler:
             source: Source language code (``"auto"`` for detection).
             target: Target language code.
         """
+        logger.debug("Pipeline languages set: source=%s, target=%s", source, target)
         self._source_lang = source
         self._target_lang = target
 
@@ -141,12 +161,20 @@ class PipelineScheduler:
             text: Final transcription text.
         """
         if not text.strip():
+            logger.debug("Empty final transcript, skipping translation")
             return
+
+        logger.info("Final transcript received (%d chars): %s...", len(text), text[:60])
 
         if self.on_partial:
             self.on_partial(text)
 
         try:
+            logger.debug(
+                "Translating: source_lang=%s, target_lang=%s",
+                self._source_lang,
+                self._target_lang,
+            )
             translated = self._translator.translate(
                 text,
                 source_lang=self._source_lang,
@@ -155,7 +183,7 @@ class PipelineScheduler:
             if self.on_translation:
                 self.on_translation(text, translated)
         except Exception as exc:
-            logger.exception("Translation failed")
+            logger.exception("Translation failed: text_len=%d", len(text))
             if self.on_error:
                 self.on_error(f"Translation failed: {exc}")
 
@@ -165,7 +193,7 @@ class PipelineScheduler:
         Args:
             exc: The exception that occurred.
         """
-        logger.error("ASR error: %s", exc)
+        logger.error("ASR error in pipeline: %s: %s", type(exc).__name__, exc)
         if self.on_error:
             self.on_error(str(exc))
 
@@ -175,6 +203,8 @@ class PipelineScheduler:
         Args:
             status: New pipeline status.
         """
+        old_status = self._status
         self._status = status
+        logger.debug("Pipeline status: %s -> %s", old_status.name, status.name)
         if self.on_status_change:
             self.on_status_change(status)

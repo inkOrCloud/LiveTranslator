@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -18,6 +19,8 @@ if TYPE_CHECKING:
     from live_translator.gui.main_window import MainWindow
     from live_translator.gui.subtitle_window import SubtitleWindow
     from live_translator.gui.tray_icon import TrayIcon
+
+logger = logging.getLogger(__name__)
 
 
 class LiveTranslatorApp:
@@ -38,8 +41,12 @@ class LiveTranslatorApp:
         self._poll_timer: QTimer | None = None
         self._config_forms: dict[str, ConfigFormBuilder] = {}
 
+        logger.info("LiveTranslatorApp initialized: config=%s", config_path)
+
     def register_default_services(self) -> None:
         """Register built-in service implementations."""
+        logger.info("Registering default services")
+
         from live_translator.services.deepl_translate import DeepLTranslateService
         from live_translator.services.litellm_translate import LiteLLMTranslateService
         from live_translator.services.openai_realtime import OpenAIRealtimeService
@@ -80,26 +87,38 @@ class LiveTranslatorApp:
             LiteLLMTranslateService(t_litellm_config),
         )
 
+        logger.debug("Default services registered: %s",
+                     self._registry.list_services("asr") +
+                    self._registry.list_services("translator"))
+
     def _on_start(self) -> None:
         """Handle start button click."""
         if self._pipeline is None:
+            logger.warning("Start requested but pipeline is None")
             return
         src, tgt = self._main_window.get_languages() if self._main_window else ("auto", "ZH")
         self._pipeline.set_languages(src, tgt)
+        logger.info("Pipeline start triggered: source=%s, target=%s", src, tgt)
         self._pipeline.start()
         self._update_status_text()
 
     def _on_pause(self) -> None:
         """Handle pause button click."""
         if self._pipeline:
+            logger.info("Pipeline pause triggered")
             self._pipeline.pause()
             self._update_status_text()
+        else:
+            logger.warning("Pause requested but pipeline is None")
 
     def _on_stop(self) -> None:
         """Handle stop button click."""
         if self._pipeline:
+            logger.info("Pipeline stop triggered")
             self._pipeline.stop()
             self._update_status_text()
+        else:
+            logger.warning("Stop requested but pipeline is None")
 
     def _on_partial(self, text: str) -> None:
         """Handle partial ASR result.
@@ -128,6 +147,7 @@ class LiveTranslatorApp:
         Args:
             status: New pipeline status.
         """
+        logger.info("Pipeline status changed: %s", status.name)
         self._update_status_text()
 
     def _on_error(self, message: str) -> None:
@@ -136,6 +156,7 @@ class LiveTranslatorApp:
         Args:
             message: Error message.
         """
+        logger.error("Pipeline error: %s", message)
         if self._main_window:
             self._main_window.set_status(f"Error: {message}")
 
@@ -147,7 +168,10 @@ class LiveTranslatorApp:
     def _on_save_config(self) -> None:
         """Save configuration from UI forms."""
         if not self._main_window:
+            logger.warning("Save config requested but main window is None")
             return
+
+        logger.info("Saving configuration from UI")
 
         # Save ASR config
         active_asr = self._main_window._asr_selector.currentData()
@@ -161,6 +185,7 @@ class LiveTranslatorApp:
                     val,
                 )
             self._config.set("services.asr.active", active_asr)
+            logger.info("ASR config saved: active=%s", active_asr)
 
         # Save translator config
         active_t = self._main_window._translator_selector.currentData()
@@ -174,10 +199,12 @@ class LiveTranslatorApp:
                     val,
                 )
             self._config.set("services.translator.active", active_t)
+            logger.info("Translator config saved: active=%s", active_t)
 
         self._config.save()
 
         # Reload services with updated config
+        logger.info("Reloading services with updated config")
         self.register_default_services()
         self._rebuild_pipeline()
 
@@ -192,6 +219,11 @@ class LiveTranslatorApp:
             self._config.get_active_service("translator"),
         )
         if asr_service is None or t_service is None:
+            logger.error(
+                "Cannot rebuild pipeline: asr=%s, translator=%s",
+                asr_service is not None,
+                t_service is not None,
+            )
             return
 
         from live_translator.audio.system_monitor import SystemMonitor
@@ -206,17 +238,26 @@ class LiveTranslatorApp:
         self._pipeline.on_status_change = self._on_status_change
         self._pipeline.on_error = self._on_error
 
+        logger.info(
+            "Pipeline rebuilt: asr=%s, translator=%s, sample_rate=%d",
+            asr_service.service_id,
+            t_service.service_id,
+            self._config.get("audio.sample_rate", 16000),
+        )
+
     def _show_windows(self) -> None:
         """Show both main and subtitle windows."""
         if self._main_window:
             self._main_window.show()
         if self._subtitle_window:
             self._subtitle_window.show()
+        logger.debug("Windows shown")
 
     def run(self) -> None:
         """Start the Qt application event loop."""
         import sys
 
+        logger.info("Starting Qt application event loop")
         app = QApplication(sys.argv)
 
         from live_translator.gui.main_window import MainWindow
@@ -225,6 +266,8 @@ class LiveTranslatorApp:
 
         self._main_window = MainWindow(self._config, self._registry)
         self._subtitle_window = SubtitleWindow()
+
+        logger.debug("MainWindow and SubtitleWindow created")
 
         # Register default services
         self.register_default_services()
@@ -249,11 +292,13 @@ class LiveTranslatorApp:
         self._main_window._translator_selector.currentIndexChanged.connect(
             self._main_window.rebuild_config_forms,
         )
+        logger.debug("Signal connections established")
 
         # Poll ASR session messages via timer
         self._poll_timer = QTimer()
         self._poll_timer.timeout.connect(self._poll_asr_session)
         self._poll_timer.start(50)
+        logger.debug("ASR poll timer started (50ms interval)")
 
         # Tray icon
         self._tray_icon = TrayIcon(self._main_window)
@@ -261,10 +306,12 @@ class LiveTranslatorApp:
             self._show_windows,
         )
         self._tray_icon._quit_action.triggered.connect(app.quit)
+        logger.debug("Tray icon set up")
 
         # Show windows
         self._main_window.show()
         self._subtitle_window.show()
+        logger.info("Application windows displayed")
 
         sys.exit(app.exec())
 

@@ -7,11 +7,14 @@ screen, similar to video subtitles.
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from PySide6.QtCore import QRect, Qt, QTimer
 from PySide6.QtGui import QBrush, QColor, QFont, QFontMetrics, QPainter, QPen
 from PySide6.QtWidgets import QApplication, QWidget
+
+logger = logging.getLogger(__name__)
 
 
 class SubtitleWindow(QWidget):
@@ -58,11 +61,17 @@ class SubtitleWindow(QWidget):
         # Position at bottom of screen
         self._position_on_screen()
 
+        logger.debug(
+            "SubtitleWindow created: font_size=%d, opacity=%.1f",
+            self._font_size, self._opacity,
+        )
+
     def _position_on_screen(self) -> None:
         """Position the window at the bottom of the primary screen."""
         screen = QApplication.primaryScreen()
         if screen is None:
             self.setGeometry(0, 0, 800, 200)
+            logger.warning("No primary screen found, using default geometry")
             return
 
         screen_rect: QRect = screen.availableGeometry()
@@ -73,6 +82,9 @@ class SubtitleWindow(QWidget):
             screen_rect.width(),
             height,
         )
+        logger.debug("SubtitleWindow positioned: (%d, %d, %d, %d)",
+                     screen_rect.x(), screen_rect.bottom() - height - 10,
+                     screen_rect.width(), height)
 
     def set_font_size(self, size: int) -> None:
         """Set subtitle font size.
@@ -83,6 +95,7 @@ class SubtitleWindow(QWidget):
         self._font_size = size
         self._font.setPointSize(size)
         self.update()
+        logger.debug("Subtitle font size set to %d", size)
 
     def set_opacity(self, value: float) -> None:
         """Set subtitle background opacity.
@@ -92,6 +105,7 @@ class SubtitleWindow(QWidget):
         """
         self._opacity = max(0.0, min(1.0, value))
         self.update()
+        logger.debug("Subtitle opacity set to %.2f", self._opacity)
 
     def show_partial(self, text: str) -> None:
         """Display partial/in-progress transcription.
@@ -102,6 +116,7 @@ class SubtitleWindow(QWidget):
         self._partial_text = text
         self.show()
         self.update()
+        logger.debug("Subtitle partial text displayed (%d chars)", len(text))
 
     def show_translation(self, original: str, translated: str) -> None:
         """Display a complete translation result.
@@ -118,6 +133,13 @@ class SubtitleWindow(QWidget):
         self.show()
         self.update()
 
+        logger.debug(
+            "Subtitle translation displayed (%d entries): orig=%d chars, trans=%d chars",
+            len(self._entries),
+            len(original),
+            len(translated),
+        )
+
         # Auto-hide after 30 seconds of no updates
         self._hide_timer.start(30000)
 
@@ -127,9 +149,11 @@ class SubtitleWindow(QWidget):
         self._partial_text = ""
         self._hide_timer.stop()
         self.hide()
+        logger.debug("Subtitle window cleared and hidden")
 
     def _on_hide_timeout(self) -> None:
         """Auto-hide the window after timeout."""
+        logger.debug("Subtitle window auto-hide timeout")
         self.hide()
 
     def paintEvent(self, event: Any) -> None:

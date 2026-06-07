@@ -2,7 +2,12 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Any
+
+import requests
+
+logger = logging.getLogger(__name__)
 
 
 class DeepLTranslateService:
@@ -23,6 +28,8 @@ class DeepLTranslateService:
             "api_key": "",
             "target_lang": "ZH",
         }
+        logger.debug("DeepLTranslateService initialized: target_lang=%s",
+                     self.config.get("target_lang", "ZH"))
 
     def translate(
         self, text: str, source_lang: str = "auto", target_lang: str | None = None
@@ -45,6 +52,15 @@ class DeepLTranslateService:
             raise RuntimeError("DeepL API key not configured")
 
         target = target_lang or self.config.get("target_lang", "ZH")
+
+        logger.info(
+            "DeepL translate: text_len=%d, source=%s, target=%s",
+            len(text),
+            source_lang,
+            target,
+        )
+        logger.debug("DeepL input (first 100 chars): %s", text[:100])
+
         params: dict[str, str] = {
             "auth_key": api_key,
             "text": text,
@@ -53,12 +69,28 @@ class DeepLTranslateService:
         if source_lang and source_lang.lower() != "auto":
             params["source_lang"] = source_lang.upper()
 
-        import requests
-
-        response = requests.post(self.BASE_URL, data=params, timeout=10)
-        response.raise_for_status()
-        data = response.json()
-        return str(data["translations"][0]["text"])
+        try:
+            logger.debug("Sending DeepL request to %s", self.BASE_URL)
+            response = requests.post(self.BASE_URL, data=params, timeout=10)
+            response.raise_for_status()
+            data = response.json()
+            result = str(data["translations"][0]["text"])
+            logger.info(
+                "DeepL translation success: input_len=%d, output_len=%d",
+                len(text),
+                len(result),
+            )
+            logger.debug("DeepL output (first 100 chars): %s", result[:100])
+        except requests.RequestException:
+            msg = f"DeepL API request failed (text_len={len(text)})"
+            logger.exception(msg)
+            raise RuntimeError(msg) from None
+        except (KeyError, ValueError):
+            msg = "DeepL response parsing failed"
+            logger.exception(msg)
+            raise RuntimeError(msg) from None
+        else:
+            return result
 
     def translate_partial(
         self, text: str, source_lang: str = "auto", target_lang: str | None = None
