@@ -229,16 +229,10 @@ class _QwenASRSession:
             msg_type = data.get("type", "")
 
             if msg_type == "conversation.item.input_audio_transcription.completed":
-                transcript = data.get("transcript", "")
-                if transcript and self._on_final_cb:
-                    self._on_final_cb(transcript)
+                self._handle_completed_event(data)
 
             elif msg_type == "conversation.item.input_audio_transcription.text":
-                text = data.get("text", "")
-                stash = data.get("stash", "")
-                combined = f"{text}{stash}"
-                if combined and self._on_partial_cb:
-                    self._on_partial_cb(combined)
+                self._handle_text_event(data)
 
             elif msg_type == "error":
                 error_msg = data.get("error", {}).get("message", "Unknown error")
@@ -248,14 +242,17 @@ class _QwenASRSession:
 
             elif msg_type in ("session.created", "session.updated"):
                 logger.info(
-                "Qwen ASR session %s: %s", msg_type,
-                data.get("session", {}).get("id", ""),
-            )
+                    "Qwen ASR session %s: %s",
+                    msg_type, data.get("session", {}).get("id", ""),
+                )
 
             elif msg_type in (
-                    "input_audio_buffer.speech_started",
-                    "input_audio_buffer.speech_stopped",
-                ):
+                "input_audio_buffer.speech_started",
+                "input_audio_buffer.speech_stopped",
+            ):
+                # Reset emitted text on new VAD segment for safety
+                if msg_type == "input_audio_buffer.speech_started":
+                    self._emitted_text = ""
                 logger.debug("Qwen ASR speech boundary: %s", msg_type)
 
             elif msg_type == "session.finished":
