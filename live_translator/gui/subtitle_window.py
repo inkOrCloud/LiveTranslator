@@ -77,7 +77,7 @@ class SubtitleWindow(QWidget):
         self._corner_radius = 8
         self._bg_opacity = 0.85
         self._max_lines = 4
-        self._window_width = 360
+        self._window_width = 720
 
         # Set up font
         self._font = QFont("Noto Sans CJK SC, Noto Sans, sans-serif", self._font_size)
@@ -129,7 +129,7 @@ class SubtitleWindow(QWidget):
         Args:
             width: Width in pixels.
         """
-        self._window_width = max(200, min(800, width))
+        self._window_width = max(200, min(1600, width))
         self.setFixedWidth(self._window_width)
         self.adjustSize()
         self.update()
