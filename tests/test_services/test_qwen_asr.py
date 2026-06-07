@@ -182,3 +182,60 @@ def test_qwen_asr_session_send_audio_lazy_connect() -> None:
         assert session._connected is True
         # Should have sent session.update + audio append
         assert mock_ws.send.call_count >= 2
+
+
+def test_qwen_asr_config_schema_has_vad_silence_duration() -> None:
+    """config_schema should include vad_silence_duration_ms for VAD segmentation."""
+    schema = QwenASRService.config_schema()
+    props = schema["properties"]
+
+    assert "vad_silence_duration_ms" in props
+    field = props["vad_silence_duration_ms"]
+    assert field["type"] == "integer"
+    assert field["default"] == 400
+    assert field["minimum"] == 200
+    assert field["maximum"] == 6000
+    assert "VAD" in field.get("description", "")
+
+
+def test_qwen_asr_create_session_passes_vad_silence_duration() -> None:
+    """create_session should pass vad_silence_duration_ms to session_config."""
+    service = QwenASRService({
+        "api_key": "test-key",
+        "model": "qwen3-asr-flash-realtime",
+        "language": "zh",
+        "vad_silence_duration_ms": 1200,
+    })
+    session = service.create_session()
+    assert session._session_config["vad_silence_duration_ms"] == 1200
+
+
+def test_qwen_asr_session_update_contains_vad_silence_duration() -> None:
+    """_connect should send silence_duration_ms in session.update payload."""
+    service = QwenASRService({
+        "api_key": "test-key",
+        "model": "qwen3-asr-flash-realtime",
+        "language": "zh",
+        "vad_silence_duration_ms": 600,
+    })
+    session = service.create_session()
+
+    with patch("websockets.sync.client.connect") as mock_connect:
+        mock_ws = MagicMock()
+        mock_connect.return_value = mock_ws
+
+        session.send_audio(b"\x00\x01\x02\x03")
+
+        # Find the session.update message
+        sent_calls = mock_ws.send.call_args_list
+        update_payload = None
+        for call in sent_calls:
+            payload = json.loads(call[0][0])
+            if payload.get("type") == "session.update":
+                update_payload = payload
+                break
+
+        assert update_payload is not None, "session.update was not sent"
+        turn_detection = update_payload["session"]["turn_detection"]
+        assert turn_detection["silence_duration_ms"] == 600
+        assert turn_detection["type"] == "server_vad"
