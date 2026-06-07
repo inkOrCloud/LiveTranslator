@@ -20,6 +20,8 @@ if TYPE_CHECKING:
     from live_translator.gui.subtitle_window import SubtitleWindow
     from live_translator.gui.tray_icon import TrayIcon
 
+from live_translator.gui.subtitle_window import ensure_xwayland_for_kde
+
 logger = logging.getLogger(__name__)
 
 
@@ -138,7 +140,7 @@ class LiveTranslatorApp:
             text: Partial transcription text.
         """
         if self._subtitle_window:
-            self._subtitle_window.show_partial(text)
+            self._subtitle_window.show_latest(text, "")
 
     def _on_translation(self, original: str, translated: str) -> None:
         """Handle completed translation.
@@ -148,7 +150,7 @@ class LiveTranslatorApp:
             translated: Translated text.
         """
         if self._subtitle_window:
-            self._subtitle_window.show_translation(original, translated)
+            self._subtitle_window.show_latest(original, translated)
         if self._main_window:
             self._main_window.add_history_entry(original, translated)
 
@@ -160,6 +162,7 @@ class LiveTranslatorApp:
         """
         logger.info("Pipeline status changed: %s", status.name)
         self._update_status_text()
+        self._update_subtitle_visibility()
 
     def _on_error(self, message: str) -> None:
         """Handle pipeline error.
@@ -170,6 +173,27 @@ class LiveTranslatorApp:
         logger.error("Pipeline error: %s", message)
         if self._main_window:
             self._main_window.set_status(f"Error: {message}")
+
+    def _on_subtitle_toggled(self, checked: bool) -> None:
+        """Handle subtitle toggle change.
+
+        Args:
+            checked: True if subtitle should be shown when active.
+        """
+        del checked
+        self._update_subtitle_visibility()
+
+    def _update_subtitle_visibility(self) -> None:
+        """Update subtitle window visibility based on toggle + pipeline state."""
+        if self._main_window is None or self._subtitle_window is None:
+            return
+        show = (
+            self._main_window._subtitle_toggle.isChecked()
+            and self._pipeline is not None
+            and self._pipeline.status == PipelineStatus.STREAMING
+        )
+        if not show:
+            self._subtitle_window.clear()
 
     def _update_status_text(self) -> None:
         """Update status label from pipeline state."""
@@ -286,13 +310,15 @@ class LiveTranslatorApp:
         """Show both main and subtitle windows."""
         if self._main_window:
             self._main_window.show()
-        if self._subtitle_window:
-            self._subtitle_window.show()
+        # Subtitle visibility is controlled by toggle + pipeline state
         logger.debug("Windows shown")
 
     def run(self) -> None:
         """Start the Qt application event loop."""
         import sys
+
+        # Ensure XWayland on KDE Wayland for proper window-on-top behavior
+        ensure_xwayland_for_kde()
 
         logger.info("Starting Qt application event loop")
         app = QApplication(sys.argv)
@@ -319,6 +345,11 @@ class LiveTranslatorApp:
 
         # Build pipeline
         self._rebuild_pipeline()
+
+        # Wire subtitle toggle
+        self._main_window._subtitle_toggle.toggled.connect(
+            self._on_subtitle_toggled,
+        )
 
         # Wire signals
         self._main_window._btn_refresh_sinks.clicked.connect(
@@ -354,7 +385,7 @@ class LiveTranslatorApp:
 
         # Show windows
         self._main_window.show()
-        self._subtitle_window.show()
+        # Subtitle visibility is controlled by toggle + pipeline state
         logger.info("Application windows displayed")
 
         sys.exit(app.exec())
