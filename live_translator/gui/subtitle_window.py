@@ -239,6 +239,9 @@ class SubtitleWindow(QWidget):
     def _count_wrap_lines(text: str, available_width: int, metrics: QFontMetrics) -> int:
         """Count how many lines text needs with word wrap.
 
+        Handles both space-separated (Latin) and non-space-separated (CJK)
+        text by falling back to character-level counting when needed.
+
         Args:
             text: Text to measure.
             available_width: Available width in pixels.
@@ -257,7 +260,22 @@ class SubtitleWindow(QWidget):
         current_width = 0
         for word in words:
             word_width = metrics.horizontalAdvance(word + " ")
-            if current_width + word_width > available_width:
+            # Single word wider than available width -> character-wrap it
+            if word_width > available_width:
+                # Flush current line
+                if current_width > 0:
+                    lines += 1
+                    current_width = 0
+                # Count characters
+                for ch in word:
+                    ch_width = metrics.horizontalAdvance(ch)
+                    if current_width + ch_width > available_width:
+                        lines += 1
+                        current_width = ch_width
+                    else:
+                        current_width += ch_width
+                current_width += metrics.horizontalAdvance(" ")
+            elif current_width + word_width > available_width:
                 lines += 1
                 current_width = word_width
             else:
@@ -267,6 +285,9 @@ class SubtitleWindow(QWidget):
     @staticmethod
     def _wrap_text(text: str, available_width: int, metrics: QFontMetrics) -> list[str]:
         """Wrap text to fit available width.
+
+        Handles both space-separated (Latin) and non-space-separated (CJK)
+        text by falling back to character-level wrapping when needed.
 
         Args:
             text: Text to wrap.
@@ -278,19 +299,39 @@ class SubtitleWindow(QWidget):
         """
         if not text:
             return [""]
+
+        lines: list[str] = []
+        current_line = ""
+
+        # First pass: split by spaces into words (works for Latin text)
         words = text.split()
         if not words:
             return [""]
 
-        lines: list[str] = []
-        current_line = ""
         for word in words:
-            test_line = f"{current_line} {word}".strip() if current_line else word
-            if metrics.horizontalAdvance(test_line) > available_width and current_line:
-                lines.append(current_line)
-                current_line = word
+            # If a single word is wider than available width,
+            # we need character-level wrapping (e.g. CJK text)
+            if metrics.horizontalAdvance(word) > available_width:
+                # Flush current line first
+                if current_line:
+                    lines.append(current_line)
+                    current_line = ""
+                # Wrap the wide word character by character
+                for ch in word:
+                    test_line = current_line + ch
+                    if metrics.horizontalAdvance(test_line) > available_width and current_line:
+                        lines.append(current_line)
+                        current_line = ch
+                    else:
+                        current_line = test_line
             else:
-                current_line = test_line
+                test_line = f"{current_line} {word}".strip() if current_line else word
+                if metrics.horizontalAdvance(test_line) > available_width and current_line:
+                    lines.append(current_line)
+                    current_line = word
+                else:
+                    current_line = test_line
+
         if current_line:
             lines.append(current_line)
         return lines or [""]
