@@ -5,7 +5,6 @@ from __future__ import annotations
 import logging
 
 from PySide6.QtWidgets import (
-    QCheckBox,
     QComboBox,
     QFrame,
     QHBoxLayout,
@@ -72,13 +71,13 @@ class MainWindow(QMainWindow):
         self._status_label = QLabel("Status: Idle")
         layout.addWidget(self._status_label)
 
-        # === Subtitle overlay toggle ===
-        self._subtitle_toggle = QCheckBox("Show Subtitle Overlay")
-        self._subtitle_toggle.setChecked(True)
-        self._subtitle_toggle.setToolTip(
-            "Show floating subtitle window when translating"
-        )
-        layout.addWidget(self._subtitle_toggle)
+        # === Mode selector ===
+        mode_layout = QHBoxLayout()
+        mode_layout.addWidget(QLabel("Mode:"))
+        self._mode_combo = QComboBox()
+        self._mode_combo.addItems(["Subtitle", "Panel", "Dual"])
+        mode_layout.addWidget(self._mode_combo)
+        layout.addLayout(mode_layout)
 
         # === Output device selector ===
         output_layout = QHBoxLayout()

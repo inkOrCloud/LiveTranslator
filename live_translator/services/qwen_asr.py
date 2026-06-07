@@ -251,7 +251,7 @@ class QwenASRService:
         """Return JSON Schema for Qwen ASR Realtime configuration.
 
         Returns:
-            JSON Schema dict with api_key, model, language, VAD params.
+            JSON Schema dict with api_key, model, language.
         """
         return {
             "type": "object",
@@ -279,14 +279,6 @@ class QwenASRService:
                         "zh", "yue", "en", "ja", "de", "ko", "ru", "fr", "pt",
                         "ar", "it", "es", "hi", "id", "th", "tr", "uk", "vi",
                     ],
-                },
-                "vad_silence_duration_ms": {
-                    "type": "integer",
-                    "title": "VAD Silence Duration (ms)",
-                    "description": "VAD断句检测阈值（毫秒）。静音持续时长超过该阈值将被认为是语句结束。推荐值: 400，取值范围: [200, 6000]。",
-                    "default": 400,
-                    "minimum": 200,
-                    "maximum": 6000,
                 },
             },
             "required": ["api_key"],
