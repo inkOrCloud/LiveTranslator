@@ -33,7 +33,7 @@ def ensure_xwayland_for_kde() -> None:
         os.environ["QT_QPA_PLATFORM"] = "xcb"
         os.environ["_LIVETRANSLATOR_RESTARTED"] = "1"
         logger.info("KDE Wayland detected - restarting under XWayland")
-        os.execve(sys.executable, [sys.executable] + sys.argv, os.environ)
+        os.execve(sys.executable, [sys.executable, *sys.argv], os.environ)  # noqa: S606
 
 
 class SubtitleWindow(QWidget):
@@ -173,7 +173,7 @@ class SubtitleWindow(QWidget):
 
     # ── Drag support ─────────────────────────────────────────────────
 
-    def mousePressEvent(self, event: Any) -> None:  # noqa: N802
+    def mousePressEvent(self, event: Any) -> None:
         """Start drag on left-click.
 
         Args:
@@ -190,7 +190,7 @@ class SubtitleWindow(QWidget):
             self._drag_offset = event.position().toPoint()
             event.accept()
 
-    def mouseMoveEvent(self, event: Any) -> None:  # noqa: N802
+    def mouseMoveEvent(self, event: Any) -> None:
         """Handle drag movement (X11 fallback).
 
         Args:
@@ -201,7 +201,7 @@ class SubtitleWindow(QWidget):
                 self.move(event.globalPosition().toPoint() - self._drag_offset)
             event.accept()
 
-    def mouseReleaseEvent(self, event: Any) -> None:  # noqa: N802
+    def mouseReleaseEvent(self, event: Any) -> None:
         """End drag on left-button release.
 
         Args:
@@ -214,7 +214,7 @@ class SubtitleWindow(QWidget):
 
     # ── Painting ─────────────────────────────────────────────────────
 
-    def adjustSize(self) -> None:  # noqa: N802
+    def adjustSize(self) -> None:
         """Calculate and set window height based on text content."""
         metrics = QFontMetrics(self._font)
         line_height = metrics.height() + self._line_spacing
@@ -295,7 +295,7 @@ class SubtitleWindow(QWidget):
             lines.append(current_line)
         return lines or [""]
 
-    def paintEvent(self, event: Any) -> None:  # noqa: N802
+    def paintEvent(self, event: Any) -> None:
         """Custom paint for translucent rounded background and text.
 
         Args:

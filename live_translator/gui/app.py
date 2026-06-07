@@ -174,7 +174,7 @@ class LiveTranslatorApp:
         if self._main_window:
             self._main_window.set_status(f"Error: {message}")
 
-    def _on_subtitle_toggled(self, checked: bool) -> None:
+    def _on_subtitle_toggled(self, checked: bool) -> None:  # noqa: FBT001
         """Handle subtitle toggle change.
 
         Args:
