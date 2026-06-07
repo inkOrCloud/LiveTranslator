@@ -96,6 +96,17 @@ class LiveTranslatorApp:
         if self._pipeline is None:
             logger.warning("Start requested but pipeline is None")
             return
+
+        # If pipeline was previously streaming, do nothing (already running)
+        from live_translator.pipeline.events import PipelineStatus
+        if self._pipeline.status == PipelineStatus.STREAMING:
+            logger.debug("Pipeline already streaming, ignoring start")
+            return
+
+        # Rebuild pipeline so VirtualSpeakerSource picks up the latest
+        # output_sink_name from the GUI selector
+        self._rebuild_pipeline()
+
         src, tgt = self._main_window.get_languages() if self._main_window else ("auto", "ZH")
         self._pipeline.set_languages(src, tgt)
         logger.info("Pipeline start triggered: source=%s, target=%s", src, tgt)
@@ -201,6 +212,15 @@ class LiveTranslatorApp:
             self._config.set("services.translator.active", active_t)
             logger.info("Translator config saved: active=%s", active_t)
 
+        # Save output device selection
+        if self._main_window:
+            output_sink = self._main_window.get_output_sink()
+            self._config.set(
+                "audio.virtual_speaker.output_sink",
+                output_sink or "",
+            )
+            logger.info("Output sink saved: %s", output_sink or "(none)")
+
         self._config.save()
 
         # Reload services with updated config
@@ -226,10 +246,27 @@ class LiveTranslatorApp:
             )
             return
 
-        from live_translator.audio.system_monitor import SystemMonitor
+        sample_rate = self._config.get("audio.sample_rate", 16000)
+        vs_config = self._config.get("audio.virtual_speaker", {})
 
-        audio = SystemMonitor(
-            sample_rate=self._config.get("audio.sample_rate", 16000),
+        from live_translator.audio.virtual_speaker import VirtualSpeakerSource
+
+        # Determine the output sink from the GUI selection or config
+        output_sink = None
+        if self._main_window:
+            output_sink = self._main_window.get_output_sink()
+
+        audio = VirtualSpeakerSource(
+            sample_rate=sample_rate,
+            sink_name=vs_config.get("sink_name", "LiveTranslatorVirtualSpeaker"),
+            sink_description=vs_config.get("sink_description", "LiveTranslator Virtual Speaker"),
+            channels=self._config.get("audio.channels", 1),
+            output_sink_name=output_sink,
+        )
+        logger.info(
+            "Using VirtualSpeakerSource: sink_name=%s, output_sink=%s",
+            vs_config.get("sink_name", "LiveTranslatorVirtualSpeaker"),
+            output_sink or "(none)",
         )
 
         self._pipeline = PipelineScheduler(audio, asr_service, t_service)
@@ -242,7 +279,7 @@ class LiveTranslatorApp:
             "Pipeline rebuilt: asr=%s, translator=%s, sample_rate=%d",
             asr_service.service_id,
             t_service.service_id,
-            self._config.get("audio.sample_rate", 16000),
+            sample_rate,
         )
 
     def _show_windows(self) -> None:
@@ -276,10 +313,17 @@ class LiveTranslatorApp:
         self._main_window.populate_service_selectors()
         self._main_window.rebuild_config_forms()
 
+        # Populate output device selector before building pipeline
+        # so _rebuild_pipeline can read the selected output sink
+        self._main_window.populate_sink_selector()
+
         # Build pipeline
         self._rebuild_pipeline()
 
         # Wire signals
+        self._main_window._btn_refresh_sinks.clicked.connect(
+            self._main_window.populate_sink_selector,
+        )
         self._main_window._btn_start.clicked.connect(self._on_start)
         self._main_window._btn_pause.clicked.connect(self._on_pause)
         self._main_window._btn_stop.clicked.connect(self._on_stop)

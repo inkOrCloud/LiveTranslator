@@ -43,9 +43,13 @@ DEFAULT_CONFIG: dict[str, Any] = {
         },
     },
     "audio": {
-        "source": "monitor",
         "sample_rate": 16000,
         "channels": 1,
+        "virtual_speaker": {
+            "sink_name": "LiveTranslatorVirtualSpeaker",
+            "sink_description": "LiveTranslator Virtual Speaker",
+            "output_sink": "",
+        },
     },
     "appearance": {
         "subtitle_size": 28,
