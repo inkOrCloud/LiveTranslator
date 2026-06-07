@@ -337,7 +337,7 @@ class TranslationOverlayWindow(QWidget):
         """
         # Mark the previously latest item as not latest
         for i in range(self._scroll_layout.count()):
-            widget = self._scroll_layout.itemAt(i).widget()
+            widget = self._scroll_layout.itemAt(i).widget()  # type: ignore[union-attr]
             if isinstance(widget, HistoryItem) and widget._latest:
                 widget.set_latest(False)
                 break
@@ -350,7 +350,7 @@ class TranslationOverlayWindow(QWidget):
 
         # Cap history at max entries
         while self._history_count > self._max_history:
-            first_widget = self._scroll_layout.itemAt(0).widget()
+            first_widget = self._scroll_layout.itemAt(0).widget()  # type: ignore[union-attr]
             if isinstance(first_widget, HistoryItem):
                 self._scroll_layout.removeWidget(first_widget)
                 first_widget.deleteLater()
@@ -388,7 +388,7 @@ class TranslationOverlayWindow(QWidget):
         # Remove all HistoryItems from scroll layout
         i = 0
         while i < self._scroll_layout.count():
-            widget = self._scroll_layout.itemAt(i).widget()
+            widget = self._scroll_layout.itemAt(i).widget()  # type: ignore[union-attr]
             if isinstance(widget, HistoryItem):
                 self._scroll_layout.removeWidget(widget)
                 widget.deleteLater()
