@@ -315,8 +315,8 @@ class SubtitleWindow(QWidget):
         painter.setPen(QPen(Qt.PenStyle.NoPen))
         painter.drawRoundedRect(self.rect(), self._corner_radius, self._corner_radius)
 
-        # Draw text
-        y = self._padding + metrics.ascent()
+        # Draw text (y starts at padding top edge, AlignTop aligns text to top of rect)
+        y = self._padding
 
         # Original text in light gray
         if self._original_text:
@@ -332,7 +332,7 @@ class SubtitleWindow(QWidget):
                 )
                 y += line_height
 
-        # Translated text in white (with separator if original exists)
+        # Translated text in white
         if self._translated_text:
             trans_lines = self._wrap_text(self._translated_text, available_width, metrics)
             painter.setPen(QColor(255, 255, 255))
