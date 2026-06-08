@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from unittest.mock import patch
+
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QApplication
 
@@ -73,6 +75,8 @@ def test_overlay_creation(qapp: QApplication) -> None:
     assert flags & Qt.WindowType.WindowStaysOnTopHint
     assert window.testAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
     assert window.testAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
+    # Tool flag would lower Z-order priority in KDE Wayland — explicitly not set
+    assert window.windowType() != Qt.WindowType.Tool
 
 
 def test_overlay_default_hidden(qapp: QApplication) -> None:
@@ -150,3 +154,17 @@ def test_overlay_aspect_ratio(qapp: QApplication) -> None:
     window.resize(500, 300)
     expected_height = window.width() * 2
     assert window.height() == expected_height
+
+
+def test_overlay_raise_window_does_not_activate(qapp: QApplication) -> None:
+    """_raise_window should only re-raise the window, never activate it.
+
+    Calling activateWindow() steals keyboard focus from the current
+    active window, disrupting user input. Use only raise_() to keep
+    the overlay on top without stealing focus.
+    """
+    window = TranslationOverlayWindow()
+    window.show()
+    with patch.object(window, 'activateWindow') as mock_activate:
+        window._raise_window()
+        mock_activate.assert_not_called()

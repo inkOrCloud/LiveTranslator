@@ -202,7 +202,6 @@ class TranslationOverlayWindow(QWidget):
         self.setWindowFlags(
             Qt.WindowType.FramelessWindowHint
             | Qt.WindowType.WindowStaysOnTopHint
-            | Qt.WindowType.Tool
         )
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
@@ -294,10 +293,14 @@ class TranslationOverlayWindow(QWidget):
         )
 
     def _raise_window(self) -> None:
-        """Periodically re-raise window to stay on top."""
+        """Periodically re-raise the window to stay on top, without stealing keyboard focus.
+
+        Only calls raise_() to keep the overlay at the top of the Z-order.
+        Never calls activateWindow() — that would steal focus from the
+        user's current active window and disrupt input.
+        """
         if self.isVisible():
             self.raise_()
-            self.activateWindow()
 
     def _position_on_screen(self) -> None:
         """Position at bottom-left of primary screen."""
