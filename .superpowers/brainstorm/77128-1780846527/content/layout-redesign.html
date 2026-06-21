@@ -1,0 +1,65 @@
+<div style="display:flex;gap:40px;flex-wrap:wrap;justify-content:center;padding:20px">
+  <!-- Current Design -->
+  <div style="flex:1;min-width:320px;max-width:500px">
+    <h3 style="text-align:center;margin-bottom:12px;color:#888">当前设计 (当前)</h3>
+    <div style="background:#111;border-radius:12px;padding:14px;font-family:sans-serif;width:400px;margin:0 auto;position:relative;box-shadow:0 8px 32px rgba(0,0,0,0.5)">
+      <div style="color:#ccc;font-size:13px;margin-bottom:8px">Hello, this is the original text of the latest sentence. It can wrap to multiple lines if the content is long enough.</div>
+      <div style="color:#fff;font-size:13px">你好，这是最新句子的翻译文本。如果内容足够长，它会自动换行。</div>
+      <div style="position:absolute;bottom:-30px;right:10px;font-size:11px;color:#555">← 只显示最新一句</div>
+    </div>
+  </div>
+
+  <!-- Proposed Redesign -->
+  <div style="flex:1;min-width:320px;max-width:600px">
+    <h3 style="text-align:center;margin-bottom:12px;color:#4fc3f7">新设计 (提案)</h3>
+    <div style="background:#111;border-radius:12px;font-family:sans-serif;width:500px;margin:0 auto;box-shadow:0 8px 32px rgba(0,0,0,0.5);overflow:hidden">
+      <!-- Top: Translation History Area (scrollable) -->
+      <div style="padding:12px 14px 8px 14px;border-bottom:1px solid #333">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+          <span style="color:#4fc3f7;font-size:11px;font-weight:bold">翻译历史</span>
+          <span style="color:#555;font-size:10px">▼ 可滑动</span>
+        </div>
+        <div style="max-height:180px;overflow-y:auto;display:flex;flex-direction:column;gap:8px">
+          <!-- History items -->
+          <div style="background:#1a1a1a;border-radius:6px;padding:8px">
+            <div style="color:#aaa;font-size:11px;margin-bottom:2px">What are your thoughts on this project?</div>
+            <div style="color:#ddd;font-size:11px">你对这个项目有什么看法？</div>
+          </div>
+          <div style="background:#1a1a1a;border-radius:6px;padding:8px">
+            <div style="color:#aaa;font-size:11px;margin-bottom:2px">We need to finalize the design by Friday.</div>
+            <div style="color:#ddd;font-size:11px">我们需要在周五前确定设计。</div>
+          </div>
+          <div style="background:#1a1a1a;border-radius:6px;padding:8px">
+            <div style="color:#aaa;font-size:11px;margin-bottom:2px">The audio quality has improved significantly.</div>
+            <div style="color:#ddd;font-size:11px">音频质量已经明显提高了。</div>
+          </div>
+          <div style="background:#1a1a1a;border-radius:6px;padding:8px">
+            <div style="color:#aaa;font-size:11px;margin-bottom:2px">Let me check the latest metrics and get back to you.</div>
+            <div style="color:#ddd;font-size:11px">让我查看最新的指标然后回复你。</div>
+          </div>
+        </div>
+      </div>
+      <!-- Bottom: Current Temporary Content -->
+      <div style="padding:8px 14px 12px 14px">
+        <div style="color:#666;font-size:10px;margin-bottom:4px">当前内容</div>
+        <div style="background:#1a3a2a;border-radius:6px;padding:8px;border-left:3px solid #4caf50">
+          <div style="color:#8bc34a;font-size:12px;margin-bottom:2px">I think we should go ahead with the new approach.</div>
+          <div style="color:#fff;font-size:12px">我认为我们应该继续推进新方案。</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<hr style="margin:30px 0;border-color:#333">
+
+<!-- Aspect ratio explanation -->
+<div style="color:#ccc;font-size:14px;line-height:1.7;max-width:800px;margin:0 auto">
+  <p><strong>关键变化：</strong></p>
+  <ul>
+    <li><strong>宽高比 2:1</strong> — 从细长条改为更宽的矩形（如 500×250px）</li>
+    <li><strong>上半部分：翻译历史</strong> — 展示最近 N 条翻译记录，带滚动条</li>
+    <li><strong>下半部分：当前临时内容</strong> — 显示最新正在处理的那一句（类似现在的功能）</li>
+    <li><strong>整体格式</strong> — 每条历史记录显示原文+译文，当前内容高亮显示</li>
+  </ul>
+</div>

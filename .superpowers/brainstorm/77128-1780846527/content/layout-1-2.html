@@ -1,0 +1,68 @@
+<div style="max-width:500px;margin:0 auto;color:#ccc;font-family:sans-serif">
+  <h3 style="color:#4fc3f7;text-align:center;margin-bottom:16px">1:2 竖长条布局</h3>
+
+  <!-- 1:2 aspect ratio window mockup -->
+  <div style="display:flex;justify-content:center">
+    <div style="background:#111;border-radius:12px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.6);width:280px">
+      <!-- Title bar -->
+      <div style="background:#1e1e1e;padding:3px 10px;display:flex;justify-content:space-between;border-bottom:1px solid #333">
+        <span style="color:#666;font-size:9px">⬤ ⬤ ⬤</span>
+        <span style="color:#555;font-size:9px">Translator</span>
+        <span style="color:#666;font-size:9px">□ ×</span>
+      </div>
+
+      <!-- History section (upper ~65%) -->
+      <div style="padding:6px 10px 4px 10px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+          <span style="color:#4fc3f7;font-size:9px;font-weight:600">▸ 翻译历史</span>
+          <span style="color:#555;font-size:8px">↕</span>
+        </div>
+
+        <div style="max-height:280px;overflow-y:auto;display:flex;flex-direction:column;gap:3px;scrollbar-width:thin;scrollbar-color:#444 transparent">
+          <div style="background:#181818;border-radius:4px;padding:4px 6px;border-left:2px solid #333">
+            <div style="color:#888;font-size:9px;margin-bottom:1px">Good morning, how can I help?</div>
+            <div style="color:#bbb;font-size:9px">早上好，我能帮你什么？</div>
+          </div>
+          <div style="background:#181818;border-radius:4px;padding:4px 6px;border-left:2px solid #333">
+            <div style="color:#888;font-size:9px;margin-bottom:1px">I need to discuss the project timeline.</div>
+            <div style="color:#bbb;font-size:9px">我需要讨论项目时间表。</div>
+          </div>
+          <div style="background:#181818;border-radius:4px;padding:4px 6px;border-left:2px solid #333">
+            <div style="color:#888;font-size:9px;margin-bottom:1px">The deadline has been moved to next week.</div>
+            <div style="color:#bbb;font-size:9px">截止日期移到了下周。</div>
+          </div>
+          <div style="background:#1a1a1a;border-radius:4px;padding:4px 6px;border-left:2px solid #666">
+            <div style="color:#aaa;font-size:9px;margin-bottom:1px">Let me check with the team first.</div>
+            <div style="color:#ddd;font-size:9px">让我先和团队确认一下。</div>
+          </div>
+          <div style="background:#181818;border-radius:4px;padding:4px 6px;border-left:2px solid #333">
+            <div style="color:#888;font-size:9px;margin-bottom:1px">Okay, I'll wait for your update.</div>
+            <div style="color:#bbb;font-size:9px">好的，我等你的更新。</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Divider -->
+      <div style="height:1px;background:linear-gradient(to right,transparent,#333,transparent);margin:0 10px"></div>
+
+      <!-- Current partial (lower ~35%) -->
+      <div style="padding:4px 10px 10px 10px;flex:1">
+        <div style="color:#666;font-size:8px;margin-bottom:2px">实时转写</div>
+        <div style="background:#0d2818;border-radius:5px;padding:6px 8px;border-left:3px solid #4caf50;min-height:50px">
+          <div style="color:#8bc34a;font-size:10px;margin-bottom:2px;opacity:0.5">I think we</div>
+          <div style="color:#8bc34a;font-size:10px">I think we should... <span style="color:#555;font-style:italic">(听写中)</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Dimension callout -->
+  <div style="margin-top:16px;text-align:center;display:flex;gap:16px;justify-content:center">
+    <span style="background:#1a1a1a;padding:4px 12px;border-radius:6px;font-size:12px;border:1px solid #333">
+      📐 <strong>1:2</strong> 宽高比 (如 280×560)
+    </span>
+    <span style="background:#1a1a1a;padding:4px 12px;border-radius:6px;font-size:12px;border:1px solid #333">
+      🖱️ 可拖拽
+    </span>
+  </div>
+</div>
