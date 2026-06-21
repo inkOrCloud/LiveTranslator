@@ -241,14 +241,14 @@ class LiveTranslatorApp:
             self._config.set("services.translator.active", active_t)
             logger.info("Translator config saved: active=%s", active_t)
 
-        # Save output device selection
+        # Save capture device selection
         if self._main_window:
-            output_sink = self._main_window.get_output_sink()
+            device_name = self._main_window.get_capture_device()
             self._config.set(
-                "audio.virtual_speaker.output_sink",
-                output_sink or "",
+                "audio.capture.device_name",
+                device_name or "",
             )
-            logger.info("Output sink saved: %s", output_sink or "(none)")
+            logger.info("Capture device saved: %s", device_name or "(auto)")
 
         self._config.save()
 
@@ -279,22 +279,18 @@ class LiveTranslatorApp:
 
         from live_translator.audio.soundcard_source import SoundcardSource
 
-        # Determine the output sink from the GUI selection or config
-        output_sink = None
+        # Determine the capture device from the GUI selection or config
+        device_name = None
         if self._main_window:
-            output_sink = self._main_window.get_output_sink()
+            device_name = self._main_window.get_capture_device()
 
-        audio = VirtualSpeakerSource(
+        audio = SoundcardSource(
+            device_name=device_name,
             sample_rate=sample_rate,
-            sink_name=vs_config.get("sink_name", "LiveTranslatorVirtualSpeaker"),
-            sink_description=vs_config.get("sink_description", "LiveTranslator Virtual Speaker"),
-            channels=self._config.get("audio.channels", 1),
-            output_sink_name=output_sink,
         )
         logger.info(
-            "Using VirtualSpeakerSource: sink_name=%s, output_sink=%s",
-            vs_config.get("sink_name", "LiveTranslatorVirtualSpeaker"),
-            output_sink or "(none)",
+            "Using SoundcardSource: device_name=%s",
+            device_name or "(auto)",
         )
 
         self._pipeline = PipelineScheduler(audio, asr_service, t_service)
@@ -356,10 +352,6 @@ class LiveTranslatorApp:
         )
 
         # Wire signals
-        self._main_window._btn_refresh_sinks.clicked.connect(
-            self._main_window.populate_capture_devices,
-        )
-        self._main_window._btn_start.clicked.connect(self._on_start)
         self._main_window._btn_pause.clicked.connect(self._on_pause)
         self._main_window._btn_stop.clicked.connect(self._on_stop)
         self._main_window._btn_save_config.clicked.connect(
