@@ -19,7 +19,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from live_translator.audio.virtual_speaker import VirtualSpeakerSource
+from live_translator.audio.soundcard_source import SoundcardSource
 from live_translator.config.manager import ConfigManager
 from live_translator.gui.config_form import ConfigFormBuilder
 from live_translator.services.registry import ServiceRegistry
@@ -82,7 +82,7 @@ class MainWindow(QMainWindow):
 
         # === Output device selector ===
         output_layout = QHBoxLayout()
-        output_layout.addWidget(QLabel("Output Device:"))
+        output_layout.addWidget(QLabel("Capture Device:"))
         self._output_sink_combo = QComboBox()
         self._output_sink_combo.setMinimumWidth(180)
         output_layout.addWidget(self._output_sink_combo, stretch=1)
@@ -166,57 +166,50 @@ class MainWindow(QMainWindow):
     # Output device (sink) selector
     # ------------------------------------------------------------------
 
-    def populate_sink_selector(self) -> None:
-        """Query PulseAudio and fill the output device combo box."""
+
+    def populate_capture_devices(self) -> None:
+        """Populate the capture device selector from soundcard."""
         self._output_sink_combo.clear()
 
-        sinks = VirtualSpeakerSource.list_sinks()
-        default_sink = VirtualSpeakerSource.get_default_sink_name()
-
-        if not sinks:
-            self._output_sink_combo.addItem("(No output devices found)", None)
-            logger.warning("No PulseAudio sinks found")
+        devices = SoundcardSource.list_devices()
+        if not devices:
+            self._output_sink_combo.addItem("(No devices found)", None)
+            logger.warning("No audio capture devices found")
             return
 
-        # Add each sink; track whether we found the saved sink
-        saved_sink = self._config.get("audio.virtual_speaker.output_sink", "")
-        found_saved = False
+        for dev in devices:
+            label = dev["name"]
+            if dev["channels"]:
+                label += f" ({dev['channels']}ch)"
+            label += " [Loopback]" if dev["is_loopback"] else " [Mic]"
+            self._output_sink_combo.addItem(label, dev["id"])
 
-        for sink in sinks:
-            name = sink.get("name", "")
-            desc = sink.get("description", name)
-            display = f"{desc} ({name})" if desc != name else name
-
-            self._output_sink_combo.addItem(display, name)
-
-            if name == saved_sink:
-                self._output_sink_combo.setCurrentIndex(self._output_sink_combo.count() - 1)
-                found_saved = True
-
-        # If saved sink wasn't found, try default sink
-        if not found_saved and default_sink:
-            idx = self._output_sink_combo.findData(default_sink)
+        # Select saved device from config
+        saved = self._config.get("audio.capture.device_name", "")
+        if saved:
+            idx = self._output_sink_combo.findData(saved)
             if idx >= 0:
                 self._output_sink_combo.setCurrentIndex(idx)
+                logger.debug("Selected saved capture device: %s", saved)
+                return
 
-        logger.debug(
-            "Sink selector populated: %d sinks, selected=%s",
-            self._output_sink_combo.count(),
-            self._output_sink_combo.currentData(),
-        )
+        # Select first loopback device by default
+        for i in range(self._output_sink_combo.count()):
+            txt = self._output_sink_combo.itemText(i)
+            if "[Loopback]" in txt:
+                self._output_sink_combo.setCurrentIndex(i)
+                logger.debug("Auto-selected first loopback device")
+                return
 
-    def get_output_sink(self) -> str | None:
-        """Get the currently selected output sink name.
+    def get_capture_device(self) -> str | None:
+        """Get the currently selected capture device ID.
 
         Returns:
-            Sink name string, or ``None`` if no device selected.
+            Device ID string, or ``None`` if no device selected.
         """
         data = self._output_sink_combo.currentData()
         return str(data) if data and str(data) != "None" else None
 
-    # ------------------------------------------------------------------
-    # Service selectors
-    # ------------------------------------------------------------------
 
     def populate_service_selectors(self) -> None:
         """Populate service selectors from registry."""
