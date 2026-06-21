@@ -353,6 +353,7 @@ class LiveTranslatorApp:
 
         # Wire signals
         self._main_window._btn_pause.clicked.connect(self._on_pause)
+        self._main_window._btn_start.clicked.connect(self._on_start)
         self._main_window._btn_stop.clicked.connect(self._on_stop)
         self._main_window._btn_save_config.clicked.connect(
             self._on_save_config,
